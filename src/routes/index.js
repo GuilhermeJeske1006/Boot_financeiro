@@ -1,12 +1,12 @@
 const express = require('express');
 const userRoutes = require('./user_routes.js');
 const authRoutes = require('./auth_routes.js');
-// const AuthMiddleware = require('../middlewares/auth_middleware.js');
+const companyRoutes = require('./company_routes.js');
 
 const router = express.Router();
 
-
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
+router.use('/companies', companyRoutes);
 
 module.exports = router;

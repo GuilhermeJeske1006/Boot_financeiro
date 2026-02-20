@@ -1,40 +1,160 @@
 const CategoryService = require('../../services/category_service');
 const TransactionService = require('../../services/transaction_service');
+const CompanyService = require('../../services/company_service');
+const UserRepository = require('../../repositories/user_respository');
 
 class TransactionMenu {
   async startFlow(type, userId) {
     const label = type === 'income' ? '📈 Entrada' : '📉 Saída';
-    const emoji = type === 'income' ? '💚' : '🔴';
-    const categories = await CategoryService.findByType(type, userId);
+
+    const user = await UserRepository.findById(userId);
+    const companies = await CompanyService.findByUserId(userId);
+    const hasCompanies = user.user_type === 'PJ' || companies.length > 0;
+
+    if (!hasCompanies) {
+      const emoji = type === 'income' ? '💚' : '🔴';
+      const categories = await CategoryService.findByType(type, userId);
+
+      let msg = `${label}\n\n`;
+      msg += `🏷️ Escolha a categoria:\n\n`;
+      categories.forEach((cat, index) => {
+        msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
+      });
+      msg += `\n_Digite o número da categoria_ ✍️`;
+
+      return msg;
+    }
 
     let msg = `${label}\n\n`;
-    msg += `🏷️ Escolha a categoria:\n\n`;
-    categories.forEach((cat, index) => {
-      msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
-    });
-    msg += `\n_Digite o número da categoria_ ✍️`;
+    msg += `🎯 Esta transação é:\n\n`;
+    msg += `  👤 *1* ➜ Pessoal\n`;
+    msg += `  🏢 *2* ➜ Empresarial\n\n`;
+    msg += `_Digite 1 ou 2_ ✍️`;
 
     return msg;
   }
 
   async handleStep(state, input, userId) {
+    const user = await UserRepository.findById(userId);
+    const companies = await CompanyService.findByUserId(userId);
+    const hasCompanies = user.user_type === 'PJ' || companies.length > 0;
+
+    if (state.step === 1 && !hasCompanies) {
+      state = {
+        ...state,
+        step: 2,
+        data: { ...state.data, is_personal: true }
+      };
+    }
+
     switch (state.step) {
       case 1:
-        return await this._handleCategorySelection(state, input, userId);
+        return await this._handleTransactionType(state, input, userId);
       case 2:
-        return this._handleAmount(state, input);
+        return await this._handleCategorySelection(state, input, userId);
       case 3:
-        return this._handleDescription(state, input);
+        return this._handleAmount(state, input);
       case 4:
-        return this._handleDate(state, input);
+        return this._handleDescription(state, input);
       case 5:
+        return this._handleDate(state, input);
+      case 6:
         return await this._handleConfirmation(state, input, userId);
       default:
         return { done: true, message: '❌ Fluxo inválido.' };
     }
   }
 
+  async _handleTransactionType(state, input, userId) {
+    const option = parseInt(input);
+
+    if (option === 1) {
+      const newState = {
+        ...state,
+        step: 2,
+        data: { ...state.data, is_personal: true },
+      };
+
+      const label = state.data.type === 'income' ? '📈 Entrada Pessoal' : '📉 Saída Pessoal';
+      const emoji = state.data.type === 'income' ? '💚' : '🔴';
+      const categories = await CategoryService.findByType(state.data.type, userId);
+
+      let msg = `${label}\n\n`;
+      msg += `🏷️ Escolha a categoria:\n\n`;
+      categories.forEach((cat, index) => {
+        msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
+      });
+      msg += `\n_Digite o número da categoria_ ✍️`;
+
+      return { newState, message: msg };
+    } else if (option === 2) {
+      const companies = await CompanyService.findByUserId(userId);
+
+      if (companies.length === 0) {
+        return {
+          done: true,
+          message: '⚠️ Você não possui empresas cadastradas. Cadastre uma empresa primeiro.',
+        };
+      }
+
+      const newState = {
+        ...state,
+        step: 2,
+        data: { ...state.data, is_personal: false, companies },
+      };
+
+      let msg = `🏢 Empresas cadastradas:\n\n`;
+      companies.forEach((company, index) => {
+        msg += `  📊 *${index + 1}* ➜ ${company.name}\n`;
+      });
+      msg += `\n_Digite o número da empresa_ ✍️`;
+
+      return { newState, message: msg };
+    } else {
+      return {
+        newState: state,
+        message: '⚠️ Opção inválida. Digite *1* para Pessoal ou *2* para Empresarial.',
+      };
+    }
+  }
+
   async _handleCategorySelection(state, input, userId) {
+    if (!state.data.is_personal && !state.data.company_id) {
+      const companies = state.data.companies;
+      const index = parseInt(input) - 1;
+
+      if (isNaN(index) || index < 0 || index >= companies.length) {
+        return {
+          newState: state,
+          message: `⚠️ Opção inválida. Digite um número de 1 a ${companies.length}.`,
+        };
+      }
+
+      const selected = companies[index];
+      const newState = {
+        ...state,
+        step: 2,
+        data: {
+          ...state.data,
+          company_id: selected.id,
+          company_name: selected.name,
+        },
+      };
+
+      const label = state.data.type === 'income' ? '📈 Entrada' : '📉 Saída';
+      const emoji = state.data.type === 'income' ? '💚' : '🔴';
+      const categories = await CategoryService.findByType(state.data.type, userId);
+
+      let msg = `${label} - 🏢 ${selected.name}\n\n`;
+      msg += `🏷️ Escolha a categoria:\n\n`;
+      categories.forEach((cat, index) => {
+        msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
+      });
+      msg += `\n_Digite o número da categoria_ ✍️`;
+
+      return { newState, message: msg };
+    }
+
     const categories = await CategoryService.findByType(state.data.type, userId);
     const index = parseInt(input) - 1;
 
@@ -48,7 +168,7 @@ class TransactionMenu {
     const selected = categories[index];
     const newState = {
       ...state,
-      step: 2,
+      step: 3,
       data: { ...state.data, category_id: selected.id, category_name: selected.name },
     };
 
@@ -71,7 +191,7 @@ class TransactionMenu {
 
     const newState = {
       ...state,
-      step: 3,
+      step: 4,
       data: { ...state.data, amount },
     };
 
@@ -85,7 +205,7 @@ class TransactionMenu {
     const description = input.toLowerCase() === 'pular' ? null : input;
     const newState = {
       ...state,
-      step: 4,
+      step: 5,
       data: { ...state.data, description },
     };
 
@@ -114,15 +234,18 @@ class TransactionMenu {
     const dateStr = date.toLocaleDateString('pt-BR');
     const newState = {
       ...state,
-      step: 5,
+      step: 6,
       data: { ...state.data, date },
     };
 
     const typeLabel = state.data.type === 'income' ? '📈 Entrada' : '📉 Saída';
     const emoji = state.data.type === 'income' ? '💚' : '🔴';
+    const transactionTypeIcon = state.data.is_personal ? '👤' : '🏢';
+    const transactionTypeLabel = state.data.is_personal ? 'Pessoal' : state.data.company_name;
 
     let summary = `${emoji} *Resumo da ${typeLabel}:*\n`;
     summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    summary += `${transactionTypeIcon} Tipo: ${transactionTypeLabel}\n`;
     summary += `🏷️ Categoria: ${state.data.category_name}\n`;
     summary += `💲 Valor: R$ ${state.data.amount.toFixed(2)}\n`;
     summary += `📝 Descrição: ${state.data.description || '(sem descrição)'}\n`;
@@ -136,16 +259,25 @@ class TransactionMenu {
 
   async _handleConfirmation(state, input, userId) {
     if (input.toUpperCase() === 'S') {
-      await TransactionService.create({
+      const transactionData = {
         type: state.data.type,
         amount: state.data.amount,
         description: state.data.description,
         category_id: state.data.category_id,
-        user_id: userId,
         date: state.data.date,
-      });
+      };
+
+      if (state.data.is_personal) {
+        transactionData.user_id = userId;
+      } else {
+        transactionData.company_id = state.data.company_id;
+      }
+
+      await TransactionService.create(transactionData);
+
       const typeLabel = state.data.type === 'income' ? 'Entrada' : 'Saída';
-      return { done: true, message: `🎉✅ ${typeLabel} registrada com sucesso!` };
+      const location = state.data.is_personal ? 'pessoal' : `da empresa ${state.data.company_name}`;
+      return { done: true, message: `🎉✅ ${typeLabel} ${location} registrada com sucesso!` };
     } else {
       return { done: true, message: '❌ Operação cancelada.' };
     }

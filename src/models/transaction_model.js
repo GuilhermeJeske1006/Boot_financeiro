@@ -31,9 +31,17 @@ class Transaction extends Model {
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: false,
+          allowNull: true,
           references: {
             model: 'users',
+            key: 'id',
+          },
+        },
+        company_id: {
+          type: DataTypes.INTEGER,
+          allowNull: true,
+          references: {
+            model: 'companies',
             key: 'id',
           },
         },
@@ -57,6 +65,16 @@ class Transaction extends Model {
         sequelize,
         modelName: 'Transaction',
         tableName: 'transactions',
+        validate: {
+          eitherUserOrCompany() {
+            if (!this.user_id && !this.company_id) {
+              throw new Error('Transação deve ter user_id ou company_id');
+            }
+            if (this.user_id && this.company_id) {
+              throw new Error('Transação não pode ter user_id e company_id simultaneamente');
+            }
+          }
+        }
       }
     );
   }

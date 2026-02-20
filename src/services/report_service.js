@@ -1,4 +1,5 @@
 const TransactionService = require('./transaction_service');
+const CompanyService = require('./company_service');
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -6,8 +7,8 @@ const MONTH_NAMES = [
 ];
 
 class ReportService {
-  async generateMonthlyReport(year, month, userId) {
-    const summary = await TransactionService.getMonthSummary(year, month, userId);
+  async generateMonthlyReport(year, month, userId, companyId = null) {
+    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
 
     let totalIncome = 0;
     let totalExpense = 0;
@@ -27,7 +28,14 @@ class ReportService {
 
     const balance = totalIncome - totalExpense;
 
+    let reportType = '👤 Pessoal';
+    if (companyId) {
+      const company = await CompanyService.findById(companyId);
+      reportType = `🏢 ${company.name}`;
+    }
+
     let report = `📊 *Relatório Financeiro*\n`;
+    report += `${reportType}\n`;
     report += `🗓️ *${MONTH_NAMES[month - 1]}/${year}*\n`;
     report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 

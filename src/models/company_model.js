@@ -1,40 +1,42 @@
 const { DataTypes, Model } = require('sequelize');
 
-class User extends Model {
+class Company extends Model {
   static init(sequelize) {
     super.init(
       {
         id: {
-            type: DataTypes.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true,
         },
         name: {
           type: DataTypes.STRING,
           allowNull: false,
         },
-        phone: {
-          type: DataTypes.STRING,
+        cnpj: {
+          type: DataTypes.STRING(18),
           allowNull: true,
           unique: true,
         },
         email: {
           type: DataTypes.STRING,
           allowNull: true,
-          unique: true,
         },
-        password: {
+        phone: {
           type: DataTypes.STRING,
           allowNull: true,
         },
-        user_type: {
-          type: DataTypes.ENUM('PF', 'PJ'),
+        address: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        user_id: {
+          type: DataTypes.INTEGER,
           allowNull: false,
-          defaultValue: 'PF',
-        },
-        remember_token: {
-          type: DataTypes.STRING,
-          allowNull: true,
+          references: {
+            model: 'users',
+            key: 'id',
+          },
         },
         created_at: {
           type: DataTypes.DATE,
@@ -49,11 +51,11 @@ class User extends Model {
       },
       {
         sequelize,
-        modelName: 'User',
-        tableName: 'users',
+        modelName: 'Company',
+        tableName: 'companies',
       }
     );
   }
 }
 
-module.exports = User;
+module.exports = Company;
