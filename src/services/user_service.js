@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const UserRepository = require('../repositories/user_respository');
 
 class UserService {
@@ -12,7 +13,14 @@ class UserService {
       throw new Error('Password is required');
     }
 
-    return UserRepository.create(data);
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    
+    const userData = {
+      ...data,
+      password: hashedPassword
+    };
+
+    return UserRepository.create(userData);
   }
 
   async findAll() {

@@ -1,16 +1,20 @@
 const database = require('../configs/database');
 
-// importe todos os models aqui
 const User = require('./user_model');
 const Category = require('./category_model');
 const Transaction = require('./transaction_model');
 const Company = require('./company_model');
+const Session = require('./session_model');
+const PasswordResetToken = require('./password_reset_token_model');
+const EmailQueue = require('./email_queue_model');
 
-// inicializa os models
 User.init(database.connection);
 Category.init(database.connection);
 Transaction.init(database.connection);
 Company.init(database.connection);
+Session.init(database.connection);
+PasswordResetToken.init(database.connection);
+EmailQueue.init(database.connection);
 
 // associations
 Category.hasMany(Transaction, { foreignKey: 'category_id', as: 'transactions' });
@@ -28,9 +32,18 @@ Company.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Company.hasMany(Transaction, { foreignKey: 'company_id', as: 'transactions' });
 Transaction.belongsTo(Company, { foreignKey: 'company_id', as: 'company' });
 
+User.hasMany(Session, { foreignKey: 'user_id', as: 'sessions' });
+Session.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(PasswordResetToken, { foreignKey: 'user_id', as: 'passwordResetTokens' });
+PasswordResetToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 module.exports = {
   User,
   Category,
   Transaction,
   Company,
+  Session,
+  PasswordResetToken,
+  EmailQueue,
 };

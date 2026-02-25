@@ -87,6 +87,19 @@ class CompanyService {
     return CompanyRepository.checkOwnership(companyId, userId);
   }
 
+  async addUser(companyId, userId) {
+    const UserRepository = require('../repositories/user_respository');
+    const company = await CompanyRepository.findById(companyId);
+    if (!company) {
+      throw new Error('Empresa não encontrada');
+    }
+    const user = await UserRepository.findById(userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+    return CompanyRepository.update(companyId, { user_id: userId });
+  }
+
   _validateCnpj(cnpj) {
     const cleaned = cnpj.replace(/[^\d]/g, '');
     if (cleaned.length !== 14) return false;

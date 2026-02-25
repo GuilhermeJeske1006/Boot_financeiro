@@ -76,6 +76,23 @@ class CompanyController {
       return res.status(400).json({ error: error.message });
     }
   }
+
+  async addUser(req, res) {
+    try {
+      const company = await CompanyService.addUser(req.params.id, req.body.user_id);
+      return res.json({
+        message: 'Usuário atrelado à empresa com sucesso',
+        company: {
+          id: company.id,
+          name: company.name,
+          user_id: company.user_id,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = new CompanyController();

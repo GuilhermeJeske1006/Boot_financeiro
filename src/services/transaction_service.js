@@ -40,6 +40,7 @@ class TransactionService {
     });
   }
 
+
   async getMonthTransactions(year, month, userId, companyId = null) {
     return TransactionRepository.findByMonth(year, month, userId, companyId);
   }

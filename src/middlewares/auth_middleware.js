@@ -1,16 +1,29 @@
+const jwt = require('jsonwebtoken');
+const AuthService = require('../services/auth_service');
+
 class AuthMiddleware {
-  verifyToken(req, res, next) {
+  async verifyToken(req, res, next) {
     const token = req.headers['authorization'];
 
     if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+      return res.status(401).json({ error: 'Token não fornecido' });
     }
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    try {
+      const secret = process.env.JWT_SECRET || 'your_jwt_secret';
+      const decoded = jwt.verify(cleanToken, secret);
 
-    if (token !== 'valid-token') {
-      return res.status(401).json({ error: 'Invalid token' });
+      const session = await AuthService.findSessionByToken(cleanToken);
+      if (!session) {
+        return res.status(401).json({ error: 'Sessão inválida ou expirada' });
+      }
+
+      req.userId = decoded.user_id;
+      next();
+    } catch (error) {
+
+      return res.status(401).json({ error: error });
     }
-
-    next();
   }
 }
 

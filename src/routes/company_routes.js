@@ -9,5 +9,8 @@ router.get('/', AuthMiddleware.verifyToken, CompanyController.findAll);
 router.get('/:id', AuthMiddleware.verifyToken, CompanyController.findById);
 router.put('/:id', AuthMiddleware.verifyToken, CompanyController.update);
 router.delete('/:id', AuthMiddleware.verifyToken, CompanyController.delete);
+router.patch('/:id/user', AuthMiddleware.verifyToken, CompanyController.addUser);
+
+
 
 module.exports = router;

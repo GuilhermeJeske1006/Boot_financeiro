@@ -1,26 +1,53 @@
 const AuthService = require('../services/auth_service');
 
-
 class AuthController {
-
-    async login(req, res) {
-        const { email, password } = req.body;
-        try {
-            const token = await AuthService.login({ email, password });
-            return res.status(200).json({ token });
-        }
-        catch (error) {
-            console.log(error);
-            return res.status(401).json({ error: error.message });
-        }
+  async login(req, res) {
+    const { email, password } = req.body;
+    try {
+      const result = await AuthService.login({ email, password });
+      return res.status(200).json({
+        message: 'Login realizado com sucesso',
+        token: result.token,
+        user: result.user,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(401).json({ error: error.message });
     }
+  }
 
-    logout(req, res) {
-        // Implement logout logic if needed
-        return res.status(200).json({ message: 'Logged out successfully' });
+  async logout(req, res) {
+    try {
+      const token = req.headers['authorization'];
+      await AuthService.logout(token);
+      return res.status(200).json({ message: 'Logout realizado com sucesso' });
+    } catch (error) {
+      console.log(error);
+      return res.status(400).json({ error: error.message });
     }
+  }
 
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      await AuthService.forgotPassword(email);
+      return res.status(200).json({ message: 'Email de redefinição de senha enviado' });
+    } catch (error) {
+      console.log(error);
+      return res.status(400).json({ error: error.message });
+    }
+  }
 
+  async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+      await AuthService.resetPassword(token, password);
+      return res.status(200).json({ message: 'Senha redefinida com sucesso' });
+    } catch (error) {
+      console.log(error);
+      return res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = new AuthController();
