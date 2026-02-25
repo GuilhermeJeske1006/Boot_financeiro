@@ -19,7 +19,9 @@ class AuthController {
   async logout(req, res) {
     try {
       const token = req.headers['authorization'];
-      await AuthService.logout(token);
+
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      await AuthService.logout(cleanToken);
       return res.status(200).json({ message: 'Logout realizado com sucesso' });
     } catch (error) {
       console.log(error);

@@ -41,16 +41,20 @@ class TransactionService {
   }
 
 
-  async getMonthTransactions(year, month, userId, companyId = null) {
-    return TransactionRepository.findByMonth(year, month, userId, companyId);
+  async getMonthTransactions(year, month, userId, companyId = null, categoryId = null) {
+    return TransactionRepository.findByMonth(year, month, userId, companyId, categoryId);
   }
 
-  async getMonthSummary(year, month, userId, companyId = null) {
-    return TransactionRepository.getMonthSummary(year, month, userId, companyId);
+  async getMonthSummary(year, month, userId, companyId = null, categoryId = null) {
+    return TransactionRepository.getMonthSummary(year, month, userId, companyId, categoryId);
   }
 
-  async getByCompanyId(companyId, year = null, month = null) {
-    return TransactionRepository.findByCompanyId(companyId, year, month);
+  async getByCompanyId(companyId, year = null, month = null, categoryId = null) {
+    return TransactionRepository.findByCompanyId(companyId, year, month, categoryId);
+  }
+
+  async getCompaniesSummary(userId, companyId = null, year = null, month = null, categoryId = null) {
+    return TransactionRepository.getCompaniesSummary(userId, companyId, year, month, categoryId);
   }
 
   async delete(id) {
