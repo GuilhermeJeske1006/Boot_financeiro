@@ -27,7 +27,8 @@ class CompanyMenu {
       msg += `  🗑️ *4* ➜ Excluir empresa\n`;
     }
     msg += `  🔙 *0* ➜ Voltar ao menu\n`;
-    
+    msg += `  🔚 *sair* ➜ Finalizar sessão\n`;
+
     return msg;
   }
 
@@ -38,6 +39,11 @@ class CompanyMenu {
   }
 
   async handleStep(state, input, userId) {
+    // Opção sair em qualquer etapa
+    if (input.toLowerCase() === 'sair') {
+      return { done: true, message: '🔚 Sessão finalizada.' };
+    }
+
     switch (state.flow) {
       case 'create':
         return await this._handleCreateFlow(state, input, userId);

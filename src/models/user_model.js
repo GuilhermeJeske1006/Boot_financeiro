@@ -16,12 +16,10 @@ class User extends Model {
         phone: {
           type: DataTypes.STRING,
           allowNull: true,
-          unique: true,
         },
         email: {
           type: DataTypes.STRING,
           allowNull: true,
-          unique: true,
         },
         password: {
           type: DataTypes.STRING,
@@ -51,6 +49,10 @@ class User extends Model {
         sequelize,
         modelName: 'User',
         tableName: 'users',
+        indexes: [
+          { name: 'users_phone_unique', unique: true, fields: ['phone'] },
+          { name: 'users_email_unique', unique: true, fields: ['email'] },
+        ],
       }
     );
   }

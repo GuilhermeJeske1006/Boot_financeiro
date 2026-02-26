@@ -4,15 +4,21 @@ class CategoryMenu {
   async showOptions() {
     return (
       `🏷️ *Gerenciar Categorias*\n` +
-      `━━━━━━━━━━━━━━━━━━\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `1️⃣ ➜ Listar todas as categorias 📋\n` +
       `2️⃣ ➜ Criar nova categoria ➕\n` +
-      `3️⃣ ➜ Excluir categoria 🗑️\n\n` +
+      `3️⃣ ➜ Excluir categoria 🗑️\n` +
+      `0️⃣ ➜ Sair 🔚\n\n` +
       `_Digite o número da opção_ ✍️`
     );
   }
 
   async handleStep(state, input, userId) {
+    // Opção sair em qualquer etapa
+    if (input.toLowerCase() === 'sair' || input === '0') {
+      return { done: true, message: '🔚 Sessão finalizada.' };
+    }
+
     switch (state.step) {
       case 1:
         return await this._handleOptionSelection(state, input, userId);

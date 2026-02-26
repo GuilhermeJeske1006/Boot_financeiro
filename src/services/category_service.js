@@ -24,8 +24,8 @@ class CategoryService {
     return CategoryRepository.findAll(userId);
   }
 
-  async findByType(type, userId) {
-    return CategoryRepository.findByType(type, userId);
+  async findByType(type, userId, isCompany = false) {
+    return CategoryRepository.findByType(type, userId, isCompany);
   }
 
   async findById(id) {

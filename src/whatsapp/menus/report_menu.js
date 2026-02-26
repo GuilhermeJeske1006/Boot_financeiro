@@ -9,13 +9,21 @@ class ReportMenu {
     return await ReportService.generateMonthlyReport(year, month, userId);
   }
 
+  async showCurrentMonthBalanceCompany(userId, companyId) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    return await ReportService.generateMonthlyReportCompany(year, month, userId, companyId);
+  }
+
   async showMenu(userId) {
     let msg = `📊 *Relatórios Financeiros*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `*Escolha o tipo de relatório:*\n\n`;
     msg += `  👤 *1* ➜ Relatório Pessoal\n`;
     msg += `  🏢 *2* ➜ Relatório por Empresa\n`;
     msg += `  🔙 *0* ➜ Voltar ao menu\n`;
+    msg += `  🔚 *sair* ➜ Finalizar sessão\n`;
     return msg;
   }
 
@@ -24,6 +32,11 @@ class ReportMenu {
   }
 
   async handleStep(state, input, userId) {
+    // Opção sair em qualquer etapa
+    if (input.toLowerCase() === 'sair') {
+      return { done: true, message: '🔚 Sessão finalizada.' };
+    }
+
     if (state.step === 1) {
       const option = parseInt(input);
 

@@ -22,6 +22,11 @@ class Category extends Model {
           allowNull: false,
           defaultValue: false,
         },
+        is_company: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
+        },
         user_id: {
           type: DataTypes.INTEGER,
           allowNull: true,

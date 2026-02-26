@@ -66,6 +66,57 @@ class ReportService {
 
     return report;
   }
+
+  async generateMonthlyReportCompany(year, month, userId, companyId) {
+    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
+    let report = `*Relatório Mensal da Empresa*\n`;
+    report += `Ano: ${year}, Mês: ${month}\n`;
+    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    for (const row of summary) {
+        if (row.type === 'income') {
+            totalIncome += parseFloat(row.total);
+        } else if (row.type === 'expense') {
+            totalExpense += parseFloat(row.total);
+        }
+    }
+
+    report += `\n💰 *Receitas Totais: R$ ${totalIncome.toFixed(2)}*\n`;
+    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    const incomeByCategory = summary.filter(r => r.type === 'income');
+    if (incomeByCategory.length === 0) {
+        report += `Nenhuma receita registrada.\n`;
+    } else {
+        for (const item of incomeByCategory) {
+            report += `  • ${item.category_name}: R$ ${parseFloat(item.total).toFixed(2)}\n`;
+        }
+    }
+
+    report += `\n💸 *Despesas Totais: R$ ${totalExpense.toFixed(2)}*\n`;
+    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    const expenseByCategory = summary.filter(r => r.type === 'expense');
+    if (expenseByCategory.length === 0) {
+        report += `Nenhuma despesa registrada.\n`;
+    } else {
+        for (const item of expenseByCategory) {
+            report += `  • ${item.category_name}: R$ ${parseFloat(item.total).toFixed(2)}\n`;
+        }
+    }
+
+    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    const balance = totalIncome - totalExpense;
+    const emoji = balance >= 0 ? '🟢' : '🔴';
+    const sign = balance >= 0 ? '+' : '-';
+    report += `${emoji} *Saldo do mês: ${sign} R$ ${Math.abs(balance).toFixed(2)}*\n`;
+
+    return report;
+  }
 }
 
 module.exports = new ReportService();

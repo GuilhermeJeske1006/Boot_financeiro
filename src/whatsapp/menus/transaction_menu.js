@@ -1,50 +1,78 @@
 const CategoryService = require('../../services/category_service');
 const TransactionService = require('../../services/transaction_service');
 const CompanyService = require('../../services/company_service');
-const UserRepository = require('../../repositories/user_respository');
 
 class TransactionMenu {
-  async startFlow(type, userId) {
+  // context: 'PF' | 'PJ' | null | undefined
+  //   'PF' ou null → mostra categorias pessoais diretamente (pula seleção PF/PJ)
+  //   'PJ'         → mostra lista de empresas diretamente (pula seleção PF/PJ)
+  //   undefined    → comportamento original (pergunta PF/PJ se houver empresa)
+  async startFlow(type, userId, context = undefined) {
     const label = type === 'income' ? '📈 Entrada' : '📉 Saída';
+    const emoji = type === 'income' ? '💚' : '🔴';
 
-    const user = await UserRepository.findById(userId);
+    if (context === 'PF' || context === null) {
+      const categories = await CategoryService.findByType(type, userId, false);
+      let msg = `${label} Pessoal\n\n`;
+      msg += `🏷️ Escolha a categoria:\n\n`;
+      categories.forEach((cat, index) => {
+        msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
+      });
+      msg += `\n_Digite o número da categoria_ ✍️\n`;
+      msg += `\n🔙 *0* ➜ Voltar | 🔚 *sair* ➜ Finalizar`;
+      return msg;
+    }
+
+    if (context === 'PJ') {
+      const companies = await CompanyService.findByUserId(userId);
+      if (companies.length === 0) {
+        return '⚠️ Você não possui empresas cadastradas. Cadastre uma empresa primeiro.';
+      }
+      let msg = `${label} Empresarial\n\n`;
+      msg += `🏢 Selecione a empresa:\n\n`;
+      companies.forEach((company, index) => {
+        msg += `  📊 *${index + 1}* ➜ ${company.name}\n`;
+      });
+      msg += `\n_Digite o número da empresa_ ✍️\n`;
+      msg += `\n🔙 *0* ➜ Voltar | 🔚 *sair* ➜ Finalizar`;
+      return msg;
+    }
+
+    // Comportamento original (context === undefined): pergunta PF/PJ se tiver empresa
     const companies = await CompanyService.findByUserId(userId);
-    const hasCompanies = user.user_type === 'PJ' || companies.length > 0;
-
-    if (!hasCompanies) {
-      const emoji = type === 'income' ? '💚' : '🔴';
-      const categories = await CategoryService.findByType(type, userId);
-
+    if (companies.length === 0) {
+      const categories = await CategoryService.findByType(type, userId, false);
       let msg = `${label}\n\n`;
       msg += `🏷️ Escolha a categoria:\n\n`;
       categories.forEach((cat, index) => {
         msg += `  ${emoji} *${index + 1}* ➜ ${cat.name}\n`;
       });
-      msg += `\n_Digite o número da categoria_ ✍️`;
-
+      msg += `\n_Digite o número da categoria_ ✍️\n`;
+      msg += `\n🔙 *0* ➜ Voltar | 🔚 *sair* ➜ Finalizar`;
       return msg;
     }
 
     let msg = `${label}\n\n`;
     msg += `🎯 Esta transação é:\n\n`;
-    msg += `  👤 *1* ➜ Pessoal\n`;
-    msg += `  🏢 *2* ➜ Empresarial\n\n`;
-    msg += `_Digite 1 ou 2_ ✍️`;
-
+    msg += `  👤 *1* ➜ Pessoa Física\n`;
+    msg += `  🏢 *2* ➜ Empresa\n\n`;
+    msg += `_Digite 1 ou 2_ ✍️\n`;
+    msg += `\n🔙 *0* ➜ Voltar | 🔚 *sair* ➜ Finalizar`;
     return msg;
   }
 
   async handleStep(state, input, userId) {
-    const user = await UserRepository.findById(userId);
-    const companies = await CompanyService.findByUserId(userId);
-    const hasCompanies = user.user_type === 'PJ' || companies.length > 0;
+    // Opção sair em qualquer etapa
+    if (input.toLowerCase() === 'sair') {
+      return { done: true, message: '🔚 Operação cancelada. Sessão finalizada.' };
+    }
 
-    if (state.step === 1 && !hasCompanies) {
-      state = {
-        ...state,
-        step: 2,
-        data: { ...state.data, is_personal: true }
-      };
+    // Fallback: se ainda estiver no step 1 e não tiver empresa, avança para step 2 como PF
+    if (state.step === 1) {
+      const companies = await CompanyService.findByUserId(userId);
+      if (companies.length === 0) {
+        state = { ...state, step: 2, data: { ...state.data, is_personal: true } };
+      }
     }
 
     switch (state.step) {
@@ -75,9 +103,9 @@ class TransactionMenu {
         data: { ...state.data, is_personal: true },
       };
 
-      const label = state.data.type === 'income' ? '📈 Entrada Pessoal' : '📉 Saída Pessoal';
+      const label = state.data.type === 'income' ? '📈 Entrada - Pessoa Física' : '📉 Saída - Pessoa Física';
       const emoji = state.data.type === 'income' ? '💚' : '🔴';
-      const categories = await CategoryService.findByType(state.data.type, userId);
+      const categories = await CategoryService.findByType(state.data.type, userId, false);
 
       let msg = `${label}\n\n`;
       msg += `🏷️ Escolha a categoria:\n\n`;
@@ -103,7 +131,7 @@ class TransactionMenu {
         data: { ...state.data, is_personal: false, companies },
       };
 
-      let msg = `🏢 Empresas cadastradas:\n\n`;
+      let msg = `🏢 Selecione a empresa:\n\n`;
       companies.forEach((company, index) => {
         msg += `  📊 *${index + 1}* ➜ ${company.name}\n`;
       });
@@ -113,12 +141,13 @@ class TransactionMenu {
     } else {
       return {
         newState: state,
-        message: '⚠️ Opção inválida. Digite *1* para Pessoal ou *2* para Empresarial.',
+        message: '⚠️ Opção inválida. Digite *1* para Pessoa Física ou *2* para Empresa.',
       };
     }
   }
 
   async _handleCategorySelection(state, input, userId) {
+    // Seleção de empresa (fluxo PJ, ainda sem empresa escolhida)
     if (!state.data.is_personal && !state.data.company_id) {
       const companies = state.data.companies;
       const index = parseInt(input) - 1;
@@ -143,7 +172,7 @@ class TransactionMenu {
 
       const label = state.data.type === 'income' ? '📈 Entrada' : '📉 Saída';
       const emoji = state.data.type === 'income' ? '💚' : '🔴';
-      const categories = await CategoryService.findByType(state.data.type, userId);
+      const categories = await CategoryService.findByType(state.data.type, userId, true);
 
       let msg = `${label} - 🏢 ${selected.name}\n\n`;
       msg += `🏷️ Escolha a categoria:\n\n`;
@@ -155,7 +184,8 @@ class TransactionMenu {
       return { newState, message: msg };
     }
 
-    const categories = await CategoryService.findByType(state.data.type, userId);
+    // Seleção de categoria (PF ou PJ já com empresa selecionada)
+    const categories = await CategoryService.findByType(state.data.type, userId, !state.data.is_personal);
     const index = parseInt(input) - 1;
 
     if (isNaN(index) || index < 0 || index >= categories.length) {
@@ -241,7 +271,7 @@ class TransactionMenu {
     const typeLabel = state.data.type === 'income' ? '📈 Entrada' : '📉 Saída';
     const emoji = state.data.type === 'income' ? '💚' : '🔴';
     const transactionTypeIcon = state.data.is_personal ? '👤' : '🏢';
-    const transactionTypeLabel = state.data.is_personal ? 'Pessoal' : state.data.company_name;
+    const transactionTypeLabel = state.data.is_personal ? 'Pessoa Física' : state.data.company_name;
 
     let summary = `${emoji} *Resumo da ${typeLabel}:*\n`;
     summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -276,7 +306,7 @@ class TransactionMenu {
       await TransactionService.create(transactionData);
 
       const typeLabel = state.data.type === 'income' ? 'Entrada' : 'Saída';
-      const location = state.data.is_personal ? 'pessoal' : `da empresa ${state.data.company_name}`;
+      const location = state.data.is_personal ? 'como Pessoa Física' : `da empresa ${state.data.company_name}`;
       return { done: true, message: `🎉✅ ${typeLabel} ${location} registrada com sucesso!` };
     } else {
       return { done: true, message: '❌ Operação cancelada.' };
