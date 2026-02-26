@@ -27,6 +27,35 @@ class UserService {
     return UserRepository.findAll();
   }
 
+  async findById(id) {
+    if (!id) {
+      throw new Error('ID is required');
+    }
+    return UserRepository.findById(id);
+  }
+
+  async update(id, data) {
+      if (!id) {
+        throw new Error('ID is required');
+      }
+      if (!data.email || !this._validateEmail(data.email)) {
+        throw new Error('Email is required');
+      }
+      if (!data.name) {
+        throw new Error('Name is required');
+      }
+      const userData = { ...data };
+
+      if (data.password) {
+        if (!this._validatePassword(data.password)) {
+          throw new Error('Password is invalid');
+        }
+        userData.password = await bcrypt.hash(data.password, 10);
+      }
+
+      return UserRepository.update(id, userData);
+  }
+
 
    _validateEmail(email) {
     const re = /\S+@\S+\.\S+/;
