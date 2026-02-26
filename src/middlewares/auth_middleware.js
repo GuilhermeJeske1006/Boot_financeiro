@@ -21,8 +21,7 @@ class AuthMiddleware {
       req.userId = decoded.user_id;
       next();
     } catch (error) {
-
-      return res.status(401).json({ error: error });
+      return res.status(401).json({ error: 'Token inválido ou expirado' });
     }
   }
 }

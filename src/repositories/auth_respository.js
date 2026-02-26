@@ -10,7 +10,6 @@ class AuthRepository {
     }
 
     const user = await User.findOne({ where: { email: data.email } });
-    console.log('User found:', user);
 
     if (!user) {
       throw new Error('Invalid email or password');
@@ -24,7 +23,7 @@ class AuthRepository {
     }
 
     const secret = process.env.JWT_SECRET || 'your_jwt_secret';
-    const expiresIn = '8h';
+    const expiresIn = process.env.JWT_EXPIRES || '8h';
     const token = jwt.sign({ user_id: user.id, email: user.email }, secret, { expiresIn });
 
     const expiresAt = new Date();
