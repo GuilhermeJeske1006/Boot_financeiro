@@ -4,6 +4,7 @@ const CompanyMenu = require('./menus/company_menu');
 const ReportMenu = require('./menus/report_menu');
 const PlanMenu = require('./menus/plan_menu');
 const CompanyService = require('../services/company_service');
+const SubscriptionService = require('../services/subscription_service');
 
 class SessionManager {
   constructor() {
@@ -199,6 +200,25 @@ class SessionManager {
 
 
   async _startTransactionFlow(phone, userId, type, context) {
+    const canCreate = await SubscriptionService.canCreateTransaction(userId);
+    if (!canCreate) {
+      const { message: planMsg, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
+      this.sessions.set(phone, {
+        flow: 'plans',
+        step: 1,
+        data: { upgradePlans, showCancel, cancelOptionNumber },
+        context,
+      });
+      return [
+        '🚫 *Limite do plano gratuito atingido!*',
+        '',
+        'Você utilizou todas as transações gratuitas deste mês.',
+        'Para continuar registrando novas transações, faça upgrade do seu plano:',
+        '',
+        planMsg,
+      ].join('\n');
+    }
+
     const flow = type === 'income' ? 'add_income' : 'add_expense';
 
     if (context === 'PF' || context === null) {
@@ -230,6 +250,26 @@ class SessionManager {
     const state = this._getSession(phone);
     const result = await TransactionMenu.handleStep(state, input, userId);
     if (result.done) {
+      if (result.planLimitReached) {
+        const { message: planMsg, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
+        this.sessions.set(phone, {
+          flow: 'plans',
+          step: 1,
+          data: { upgradePlans, showCancel, cancelOptionNumber },
+          context: state.context,
+        });
+        return [
+          result.message,
+          '',
+          '━━━━━━━━━━━━━━━━━━━━━━',
+          '🚫 *Limite do plano gratuito atingido!*',
+          '',
+          'Você utilizou todas as transações gratuitas deste mês.',
+          'Para continuar registrando, faça upgrade do seu plano:',
+          '',
+          planMsg,
+        ].join('\n');
+      }
       this._resetToMain(phone);
       return result.message + '\n\n' + await MainMenu.show(userId);
     }

@@ -1,6 +1,7 @@
 const CategoryService = require('../../services/category_service');
 const TransactionService = require('../../services/transaction_service');
 const CompanyService = require('../../services/company_service');
+const SubscriptionService = require('../../services/subscription_service');
 
 class TransactionMenu {
   // context: 'PF' | 'PJ' | null | undefined
@@ -307,7 +308,14 @@ class TransactionMenu {
 
       const typeLabel = state.data.type === 'income' ? 'Entrada' : 'Saída';
       const location = state.data.is_personal ? 'como Pessoa Física' : `da empresa ${state.data.company_name}`;
-      return { done: true, message: `🎉✅ ${typeLabel} ${location} registrada com sucesso!` };
+      const successMsg = `🎉✅ ${typeLabel} ${location} registrada com sucesso!`;
+
+      const canCreate = await SubscriptionService.canCreateTransaction(userId);
+      if (!canCreate) {
+        return { done: true, planLimitReached: true, message: successMsg };
+      }
+
+      return { done: true, message: successMsg };
     } else {
       return { done: true, message: '❌ Operação cancelada.' };
     }
