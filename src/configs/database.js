@@ -1,4 +1,5 @@
 const { Sequelize } = require('sequelize');
+const SlackService = require('../services/slack_service');
 
 class Database {
   constructor() {
@@ -25,7 +26,8 @@ class Database {
       console.log('✅ Banco de dados conectado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao conectar no banco:', error);
-      process.exit(1);
+      SlackService.notifyError(error, { route: 'database.connect' });
+      setTimeout(() => process.exit(1), 1500);
     }
   }
 }

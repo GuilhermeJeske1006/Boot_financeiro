@@ -1,5 +1,6 @@
 const UserRepository = require('../../repositories/user_respository');
 const CompanyService = require('../../services/company_service');
+const SlackService = require('../../services/slack_service');
 const MainMenu = require('../menus/main_menu');
 
 const pendingRegistrations = {};
@@ -49,11 +50,14 @@ class RegistrationService {
           user_type: 'PF',
         });
 
+        
+        SlackService.notifyNewUser({ userId: user.id, userName: user.name, userEmail: user.email });
+
         delete pendingRegistrations[phone];
         return {
           done: true,
           user,
-          context: null,
+          context: null, 
           reply:
             `✅ Cadastro realizado! Bem-vindo(a), *${user.name}*! 🎉\n\n` +
             (await MainMenu.show(user.id)),
@@ -99,6 +103,9 @@ class RegistrationService {
         phone,
         user_type: 'PJ',
       });
+
+      SlackService.notifyNewUser({ userId: user.id, userName: user.name, userEmail: user.email });
+
 
       await CompanyService.create({
         user_id: user.id,

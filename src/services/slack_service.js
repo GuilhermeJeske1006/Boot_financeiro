@@ -80,6 +80,32 @@ class SlackService {
   }
 
   /**
+   * Reporta um novo usuário cadastrado no canal de assinaturas do Slack.
+   * @param {object} info - { userId, userName, userEmail }
+   */
+  notifyNewUser(info = {}) {
+    const webhookUrl = process.env.SLACK_WEBHOOK_SUBSCRIPTIONS;
+    if (!webhookUrl) return;
+
+    const payload = {
+      attachments: [
+        {
+          color: '#3498db',
+          title: ':wave: Novo usuário cadastrado!',
+          fields: [
+            { title: 'Nome', value: info.userName || `ID ${info.userId}`, short: true },
+            { title: 'E-mail', value: info.userEmail || '—', short: true },
+          ],
+          footer: 'Node API',
+          ts: Math.floor(Date.now() / 1000),
+        },
+      ],
+    };
+
+    this._send(webhookUrl, payload);
+  }
+
+  /**
    * Reporta uma nova assinatura no canal de assinaturas do Slack.
    * @param {object} info - { userId, userName, userEmail, planName, billingId }
    */
