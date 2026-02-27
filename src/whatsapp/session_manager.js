@@ -140,7 +140,6 @@ class SessionManager {
       this.sessions.set(phone, { ...state, context: null });
     }
 
-    console.log(context, 'contet')
 
     switch (input) {
       case '1':

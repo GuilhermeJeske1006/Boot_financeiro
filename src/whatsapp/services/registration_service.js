@@ -1,6 +1,6 @@
-const UserRepository = require('../repositories/user_respository');
-const CompanyService = require('../services/company_service');
-const MainMenu = require('./menus/main_menu');
+const UserRepository = require('../../repositories/user_respository');
+const CompanyService = require('../../services/company_service');
+const MainMenu = require('../menus/main_menu');
 
 const pendingRegistrations = {};
 

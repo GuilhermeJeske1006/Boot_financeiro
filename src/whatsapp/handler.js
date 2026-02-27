@@ -1,7 +1,6 @@
 const SessionManager = require('./session_manager');
 const UserRepository = require('../repositories/user_respository');
-const RegistrationService = require('./registration_service');
-const { consumeWebhookMessage } = require('./client');
+const RegistrationService = require('./services/registration_service');
 
 var MY_ID = '215993922150427@lid';
 
@@ -15,9 +14,6 @@ async function handleMessage(message) {
 
   const phone = message.from;
 
-  // Mensagens enviadas pelo bot via webhook têm message.from = número do bot e message.to = user.phone
-  // As marcas são armazenadas para user.phone, então verificamos os dois lados
-  if (consumeWebhookMessage(phone) || consumeWebhookMessage(message.to)) return;
 
   const userInput = message.body.trim();
 

@@ -67,6 +67,11 @@ class PlanMenu {
       return { done: true, message: '' };
     }
 
+    // Etapa: link gerado, aguardando retorno ao menu
+    if (state.data.awaitingReturn) {
+      return { done: true, message: '' };
+    }
+
     // Etapa: aguardando e-mail do usuário
     if (state.data.awaitingEmail) {
       return await this._handleEmailStep(state, input, userId);
@@ -162,7 +167,11 @@ class PlanMenu {
         ``,
         `✅ Após o pagamento, seu plano será ativado automaticamente e você receberá uma confirmação aqui no WhatsApp!`,
       ].join('\n');
-      return { done: true, message: msg };
+      const fullMsg = msg + `\n\n*0* ➜ Voltar ao menu\n\n_Digite 0 para continuar_ ✍️`;
+      return {
+        newState: { ...state, data: { awaitingReturn: true } },
+        message: fullMsg,
+      };
     } catch (error) {
       console.error('Erro ao gerar link de pagamento:', error);
       return {

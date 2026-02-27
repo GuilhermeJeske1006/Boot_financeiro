@@ -1,4 +1,5 @@
 const abacatePayRepository = require('../repositories/abacatepay_repository');
+const FormatHelper = require('../helpers/format_helper');
 
 class AbacatePayService {
   /**
@@ -12,6 +13,9 @@ class AbacatePayService {
 
     if (!user.email) {
       throw new Error('O usuário precisa ter um e-mail cadastrado para gerar o link de pagamento.');
+    }
+    if(!user.tax_id) {
+        throw new Error('O usuário precisa ter um CPF cadastrado para gerar o link de pagamento.');
     }
 
     const payload = {
@@ -30,9 +34,8 @@ class AbacatePayService {
       customer: {
         name: user.name,
         email: user.email,
-        taxId: user.tax_id,
-        // Remove caracteres não numéricos e o sufixo @c.us do WhatsApp
-        cellphone: user.phone ? user.phone.replace('@c.us', '').replace(/\D/g, '') : undefined,
+        taxId: FormatHelper.formatTaxId(user.tax_id),
+        cellphone: FormatHelper.formatCellphone(user.phone),
       },
     };
 
