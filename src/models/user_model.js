@@ -30,6 +30,10 @@ class User extends Model {
           allowNull: false,
           defaultValue: 'PF',
         },
+        tax_id: {
+          type: DataTypes.STRING(14),
+          allowNull: true,
+        },
         remember_token: {
           type: DataTypes.STRING,
           allowNull: true,

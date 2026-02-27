@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const database = require('./configs/database');
 const routes = require('./routes');
 const seedCategories = require('./configs/seed_categories');
+const seedPlans = require('./configs/seed_plans');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use(express.json({ limit: '10kb' }));
   await database.connect();
   await database.connection.sync({ alter: true });
   await seedCategories();
+  await seedPlans();
 })();
 
 app.use('/api', routes);

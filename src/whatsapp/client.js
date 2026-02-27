@@ -3,6 +3,21 @@ const qrcode = require('qrcode-terminal');
 
 let client = null;
 
+// Rastreia mensagens enviadas programaticamente (webhook) para o handler ignorar
+const pendingWebhookMessages = new Map();
+
+function markWebhookMessage(phone) {
+  pendingWebhookMessages.set(phone, (pendingWebhookMessages.get(phone) || 0) + 1);
+}
+
+function consumeWebhookMessage(phone) {
+  const count = pendingWebhookMessages.get(phone) || 0;
+  if (count <= 0) return false;
+  if (count === 1) pendingWebhookMessages.delete(phone);
+  else pendingWebhookMessages.set(phone, count - 1);
+  return true;
+}
+
 function initializeWhatsApp() {
   client = new Client({
     authStrategy: new LocalAuth({
@@ -47,4 +62,4 @@ function getClient() {
   return client;
 }
 
-module.exports = { initializeWhatsApp, getClient };
+module.exports = { initializeWhatsApp, getClient, markWebhookMessage, consumeWebhookMessage };

@@ -4,6 +4,8 @@ const authRoutes = require('./auth_routes.js');
 const companyRoutes = require('./company_routes.js');
 const transactionRoutes = require('./transaction_routes.js');
 const categoryRoutes = require('./category_routes.js');
+const subscriptionRoutes = require('./subscription_routes.js');
+const webhookRoutes = require('./webhook_routes.js');
 
 const router = express.Router();
 
@@ -12,5 +14,7 @@ router.use('/auth', authRoutes);
 router.use('/companies', companyRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/categories', categoryRoutes);
+router.use('/subscriptions', subscriptionRoutes);
+router.use('/webhooks', webhookRoutes);
 
 module.exports = router;

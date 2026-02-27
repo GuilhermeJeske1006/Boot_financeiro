@@ -2,6 +2,7 @@ const MainMenu = require('./menus/main_menu');
 const TransactionMenu = require('./menus/transaction_menu');
 const CompanyMenu = require('./menus/company_menu');
 const ReportMenu = require('./menus/report_menu');
+const PlanMenu = require('./menus/plan_menu');
 const CompanyService = require('../services/company_service');
 
 class SessionManager {
@@ -27,6 +28,11 @@ class SessionManager {
     const existing = this.sessions.get(phone);
     const context = existing ? existing.context : undefined;
     this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context });
+  }
+
+  // Chamado pelo webhook após confirmação de pagamento
+  resetSession(phone) {
+    this.sessions.delete(phone);
   }
 
   // Chamado pelo handler.js após o cadastro para inicializar o contexto
@@ -94,6 +100,8 @@ class SessionManager {
           return await this._handleCompanyFlow(phone, userId, input);
         case 'report':
           return await this._handleReportFlow(phone, userId, input);
+        case 'plans':
+          return await this._handlePlanFlow(phone, userId, input);
         default:
           this._resetToMain(phone);
           return await MainMenu.show(userId);
@@ -144,6 +152,11 @@ class SessionManager {
       case '4':
         this.sessions.set(phone, { flow: 'manage_companies', step: 1, data: {}, context });
         return await CompanyMenu.showMenu(userId);
+      case '5': {
+        const { message, upgradePlans } = await PlanMenu.show(userId);
+        this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans }, context });
+        return message;
+      }
       case '0':
         this.sessions.delete(phone);
         return `🔚 Sessão finalizada.\n\nObrigado por usar o *Bot Financeiro*! 👋\n\nPara iniciar novamente, envie qualquer mensagem.`;
@@ -233,6 +246,20 @@ class SessionManager {
       this._resetToMain(phone);
       return result.message + '\n\n' + await MainMenu.show(userId);
     }
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _handlePlanFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await PlanMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
     this.sessions.set(phone, { ...result.newState, context: state.context });
     return result.message;
   }
