@@ -57,6 +57,20 @@ class SubscriptionRepository {
     });
   }
 
+  // Retorna o limite mensal de transações do plano ativo do usuário (-1 = ilimitado, 50 = padrão free)
+  async getTransactionLimit(userId) {
+    const subscription = await Subscription.findOne({
+        where: {
+            user_id: userId,
+            status: 'active',
+        },
+    });
+
+    const result = await Plan.findOne({ where: { id: subscription.plan_id } });
+
+    return result?.max_transactions_per_month ?? 50;
+  }
+
   async countTransactionsThisMonth(userId) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

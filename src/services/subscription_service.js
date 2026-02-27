@@ -27,10 +27,7 @@ class SubscriptionService {
 
   // Verifica se o usuário pode criar mais uma transação no mês
   async canCreateTransaction(userId) {
-    const subscription = await SubscriptionRepository.findActiveByUserId(userId);
-    if (!subscription) return false;
-
-    const limit = subscription.plan.max_transactions_per_month;
+    const limit = await SubscriptionRepository.getTransactionLimit(userId);
     if (limit === -1) return true; // ilimitado
 
     const count = await SubscriptionRepository.countTransactionsThisMonth(userId);

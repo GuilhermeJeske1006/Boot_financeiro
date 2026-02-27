@@ -19,8 +19,10 @@ class PlanMenu {
     msg += `📦 Plano atual: *${displayName}*\n`;
 
     if (planName === 'free') {
-      const count = await SubscriptionRepository.countTransactionsThisMonth(userId);
-      const limit = currentPlan?.max_transactions_per_month ?? 50;
+      const [count, limit] = await Promise.all([
+        SubscriptionRepository.countTransactionsThisMonth(userId),
+        SubscriptionRepository.getTransactionLimit(userId),
+      ]);
       msg += `📊 Transações este mês: *${count} / ${limit}*\n\n`;
     } else {
       if (subscription?.expires_at) {

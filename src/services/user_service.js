@@ -1,6 +1,5 @@
 const bcrypt = require('bcrypt');
 const UserRepository = require('../repositories/user_respository');
-const SubscriptionService = require('./subscription_service');
 
 class UserService {
   async create(data) {
@@ -21,9 +20,7 @@ class UserService {
       password: hashedPassword
     };
 
-    const user = await UserRepository.create(userData);
-    await SubscriptionService.assignFreePlan(user.id);
-    return user;
+    return UserRepository.create(userData);
   }
 
   async findAll() {

@@ -1,8 +1,20 @@
-const { User } = require('../models');
+const { User, Subscription, Plan } = require('../models');
 
 class UserRepository {
   async create(data) {
-    return User.create(data);
+    const user = await User.create(data);
+    const freePlan = await Plan.findOne({ where: { name: 'free' } });
+    if (freePlan) {
+      await Subscription.create({
+        user_id: user.id,
+        plan_id: freePlan.id,
+        status: 'active',
+        starts_at: new Date(),
+        expires_at: null,
+        payment_provider: 'manual',
+      });
+    }
+    return user;
   }
 
   async findAll() {
