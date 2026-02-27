@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const ReportService = require('../services/report_service');
 const UserRepository = require('../repositories/user_respository');
+const SubscriptionService = require('../services/subscription_service');
 const { getClient } = require('../whatsapp/client');
 
 function startMonthlyCron() {
@@ -25,6 +26,9 @@ function startMonthlyCron() {
       for (const user of users) {
         if (!user.phone) continue;
         try {
+          const hasFeature = await SubscriptionService.hasFeature(user.id, 'whatsapp_reports');
+          if (!hasFeature) continue;
+
           const report = await ReportService.generateMonthlyReport(year, month, user.id);
           await client.sendMessage(user.phone, report);
           console.log(`Relatório mensal ${month}/${year} enviado para ${user.phone}.`);

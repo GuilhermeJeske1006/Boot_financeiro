@@ -10,6 +10,7 @@ const defaultPlans = [
     whatsapp_reports: false,
     pdf_export: false,
     multi_user: false,
+    recurring_transactions: false,
   },
   {
     name: 'pro',
@@ -20,6 +21,7 @@ const defaultPlans = [
     whatsapp_reports: true,
     pdf_export: true,
     multi_user: false,
+    recurring_transactions: true,
   },
   {
     name: 'business',
@@ -30,6 +32,7 @@ const defaultPlans = [
     whatsapp_reports: true,
     pdf_export: true,
     multi_user: true,
+    recurring_transactions: true,
   },
 ];
 
@@ -38,6 +41,8 @@ async function seedPlans() {
     const exists = await Plan.findOne({ where: { name: plan.name } });
     if (!exists) {
       await Plan.create(plan);
+    } else {
+      await exists.update(plan);
     }
   }
   console.log('Planos padrão carregados.');

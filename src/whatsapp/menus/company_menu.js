@@ -1,12 +1,16 @@
 const CompanyService = require('../../services/company_service');
+const SubscriptionService = require('../../services/subscription_service');
 
 class CompanyMenu {
   async showMenu(userId) {
-    const companies = await CompanyService.findByUserId(userId);
-    
+    const [companies, canAdd] = await Promise.all([
+      CompanyService.findByUserId(userId),
+      SubscriptionService.canAddCompany(userId),
+    ]);
+
     let msg = `🏢 *Gerenciar Empresas*\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    
+
     if (companies.length > 0) {
       msg += `📊 Suas empresas:\n\n`;
       companies.forEach((company, index) => {
@@ -17,10 +21,14 @@ class CompanyMenu {
     } else {
       msg += `⚠️ Você ainda não tem empresas cadastradas.\n\n`;
     }
-    
+
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `*Opções:*\n`;
-    msg += `  ➕ *1* ➜ Cadastrar empresa\n`;
+    if (canAdd) {
+      msg += `  ➕ *1* ➜ Cadastrar empresa\n`;
+    } else {
+      msg += `  🔒 *Cadastrar empresa* ➜ Disponível apenas no plano Business\n`;
+    }
     if (companies.length > 0) {
       msg += `  📋 *2* ➜ Ver detalhes\n`;
       msg += `  ✏️ *3* ➜ Editar empresa\n`;

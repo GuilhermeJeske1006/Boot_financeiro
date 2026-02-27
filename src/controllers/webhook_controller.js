@@ -7,7 +7,6 @@ const MainMenu = require('../whatsapp/menus/main_menu');
 
 class WebhookController {
   async abacatePay(req, res) {
-    console.log('Webhook received:', { body: req.body, query: req.query, headers: req.headers });
     // 1. Verifica o secret da query string
     const receivedSecret = req.query.webhookSecret;
     if (!AbacatePayService.verifyWebhookSecret(receivedSecret)) {

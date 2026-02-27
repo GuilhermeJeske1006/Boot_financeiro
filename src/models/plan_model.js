@@ -50,6 +50,11 @@ class Plan extends Model {
           allowNull: false,
           defaultValue: false,
         },
+        recurring_transactions: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
+        },
         is_active: {
           type: DataTypes.BOOLEAN,
           allowNull: false,

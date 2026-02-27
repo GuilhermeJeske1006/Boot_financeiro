@@ -2,6 +2,7 @@ const app = require('./app');
 const { initializeWhatsApp } = require('./whatsapp/client');
 const { startMonthlyCron } = require('./cron/monthly_report');
 const { startSubscriptionRenewalCron } = require('./cron/subscription_renewal');
+const { startRecurringTransactionsCron } = require('./cron/recurring_transactions');
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');
@@ -15,3 +16,6 @@ startMonthlyCron();
 
 // inicia o cron job de renovação de assinaturas
 startSubscriptionRenewalCron();
+
+// inicia o cron job de transações recorrentes
+startRecurringTransactionsCron();

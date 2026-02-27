@@ -9,6 +9,7 @@ const PasswordResetToken = require('./password_reset_token_model');
 const EmailQueue = require('./email_queue_model');
 const Plan = require('./plan_model');
 const Subscription = require('./subscription_model');
+const RecurringTransaction = require('./recurring_transaction_model');
 
 User.init(database.connection);
 Category.init(database.connection);
@@ -19,6 +20,7 @@ PasswordResetToken.init(database.connection);
 EmailQueue.init(database.connection);
 Plan.init(database.connection);
 Subscription.init(database.connection);
+RecurringTransaction.init(database.connection);
 
 // associations
 Category.hasMany(Transaction, { foreignKey: 'category_id', as: 'transactions' });
@@ -48,6 +50,15 @@ Subscription.belongsTo(Plan, { foreignKey: 'plan_id', as: 'plan' });
 User.hasMany(Subscription, { foreignKey: 'user_id', as: 'subscriptions' });
 Subscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+Category.hasMany(RecurringTransaction, { foreignKey: 'category_id', as: 'recurringTransactions' });
+RecurringTransaction.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
+
+User.hasMany(RecurringTransaction, { foreignKey: 'user_id', as: 'recurringTransactions' });
+RecurringTransaction.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+Company.hasMany(RecurringTransaction, { foreignKey: 'company_id', as: 'recurringTransactions' });
+RecurringTransaction.belongsTo(Company, { foreignKey: 'company_id', as: 'company' });
+
 module.exports = {
   User,
   Category,
@@ -58,4 +69,5 @@ module.exports = {
   EmailQueue,
   Plan,
   Subscription,
+  RecurringTransaction,
 };
