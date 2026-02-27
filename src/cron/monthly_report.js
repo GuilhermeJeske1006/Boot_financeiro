@@ -18,6 +18,8 @@ function startMonthlyCron() {
     try {
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
       const client = getClient();
       if (!client) return;
 
@@ -29,7 +31,8 @@ function startMonthlyCron() {
           const hasFeature = await SubscriptionService.hasFeature(user.id, 'whatsapp_reports');
           if (!hasFeature) continue;
 
-          const report = await ReportService.generateMonthlyReport(year, month, user.id);
+          const prevTotals = await ReportService.getMonthTotals(prevYear, prevMonth, user.id);
+          const report = await ReportService.generateMonthlyReport(year, month, user.id, null, prevTotals);
           await client.sendMessage(user.phone, report);
           console.log(`Relatório mensal ${month}/${year} enviado para ${user.phone}.`);
         } catch (err) {

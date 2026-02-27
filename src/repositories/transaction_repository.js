@@ -152,6 +152,10 @@ class TransactionRepository {
     });
   }
 
+  async findById(id) {
+    return Transaction.findByPk(id);
+  }
+
   async delete(id) {
     const transaction = await Transaction.findByPk(id);
     if (!transaction) throw new Error('Transação não encontrada');

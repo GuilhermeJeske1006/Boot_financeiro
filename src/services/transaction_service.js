@@ -57,7 +57,21 @@ class TransactionService {
     return TransactionRepository.getCompaniesSummary(userId, companyId, year, month, categoryId);
   }
 
-  async delete(id) {
+  async delete(id, userId) {
+    const transaction = await TransactionRepository.findById(id);
+    if (!transaction) throw new Error('Transação não encontrada');
+
+    if (transaction.user_id && transaction.user_id !== userId) {
+      throw new Error('Sem permissão para excluir esta transação');
+    }
+
+    if (transaction.company_id) {
+      const hasOwnership = await CompanyService.checkOwnership(transaction.company_id, userId);
+      if (!hasOwnership) {
+        throw new Error('Sem permissão para excluir esta transação');
+      }
+    }
+
     return TransactionRepository.delete(id);
   }
 }

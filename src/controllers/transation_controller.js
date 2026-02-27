@@ -94,11 +94,12 @@ class TransactionController {
 
   async delete(req, res) {
     try {
-      await TransactionService.delete(req.params.id);
+      await TransactionService.delete(req.params.id, req.userId);
       return res.json({ message: 'Transação excluída com sucesso' });
     } catch (error) {
       console.log(error);
-      return res.status(400).json({ error: error.message });
+      const status = error.message.includes('permissão') ? 403 : 400;
+      return res.status(status).json({ error: error.message });
     }
   }
 }

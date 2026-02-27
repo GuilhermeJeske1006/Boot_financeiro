@@ -1,4 +1,5 @@
 const app = require('./app');
+const { dbInit } = require('./app');
 const SlackService = require('./services/slack_service');
 const { initializeWhatsApp } = require('./whatsapp/client');
 const { startMonthlyCron } = require('./cron/monthly_report');
@@ -16,20 +17,31 @@ process.on('unhandledRejection', (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
   console.error('[FATAL] unhandledRejection:', err);
   SlackService.notifyError(err, { route: 'unhandledRejection' });
+  setTimeout(() => process.exit(1), 1500);
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
+// Garante que o banco esteja pronto antes de aceitar requisições
+(async () => {
+  try {
+    await dbInit();
 
-// inicia o bot do WhatsApp
-initializeWhatsApp();
+    app.listen(3000, () => {
+      console.log('Server running on port 3000');
+    });
 
-// inicia o cron job de relatório mensal
-startMonthlyCron();
+    // inicia o bot do WhatsApp
+    initializeWhatsApp();
 
-// inicia o cron job de renovação de assinaturas
-startSubscriptionRenewalCron();
+    // inicia o cron job de relatório mensal
+    startMonthlyCron();
 
-// inicia o cron job de transações recorrentes
-startRecurringTransactionsCron();
+    // inicia o cron job de renovação de assinaturas
+    startSubscriptionRenewalCron();
+
+    // inicia o cron job de transações recorrentes
+    startRecurringTransactionsCron();
+  } catch (err) {
+    console.error('[FATAL] Falha na inicialização do servidor:', err);
+    process.exit(1);
+  }
+})();

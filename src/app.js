@@ -1,4 +1,7 @@
-require('dotenv').config();
+require('dotenv').config({ path: `.env.${process.env.NODE_ENV || 'local'}` });
+const validateEnv = require('./configs/env_validator');
+validateEnv();
+
 require("jsonwebtoken");
 const express = require('express');
 const cors = require('cors');
@@ -31,17 +34,20 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }));
 
-// conecta no banco e sincroniza tabelas
-(async () => {
-  await database.connect();
-  await database.connection.sync({ alter: true });
-  await seedCategories();
-  await seedPlans();
-})();
-
 app.use('/api', routes);
 
 // Deve ficar após todas as rotas — captura erros passados via next(err)
 app.use(errorHandler);
 
+// Conecta no banco, sincroniza tabelas e popula dados iniciais.
+// Chamado em server.js antes do app.listen() para evitar race condition.
+// TODO: substituir database.sync() por migrations do Sequelize — https://sequelize.org/docs/v6/other-topics/migrations/
+async function dbInit() {
+  await database.connect();
+  await database.connection.sync();
+  await seedCategories();
+  await seedPlans();
+}
+
 module.exports = app;
+module.exports.dbInit = dbInit;

@@ -7,7 +7,19 @@ const MONTH_NAMES = [
 ];
 
 class ReportService {
-  async generateMonthlyReport(year, month, userId, companyId = null) {
+  async getMonthTotals(year, month, userId, companyId = null) {
+    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
+    let totalIncome = 0;
+    let totalExpense = 0;
+    for (const row of summary) {
+      const amount = parseFloat(row.total);
+      if (row.type === 'income') totalIncome += amount;
+      else totalExpense += amount;
+    }
+    return { totalIncome, totalExpense, balance: totalIncome - totalExpense };
+  }
+
+  async generateMonthlyReport(year, month, userId, companyId = null, prevTotals = null) {
     const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
 
     let totalIncome = 0;
@@ -63,6 +75,20 @@ class ReportService {
     const emoji = balance >= 0 ? '🤑' : '😰';
     const sign = balance >= 0 ? '+' : '-';
     report += `${emoji} *Saldo do mês: ${sign} R$ ${Math.abs(balance).toFixed(2)}*\n`;
+
+    if (prevTotals && (prevTotals.totalIncome + prevTotals.totalExpense) > 0) {
+      const diffIncome = totalIncome - prevTotals.totalIncome;
+      const diffExpense = totalExpense - prevTotals.totalExpense;
+      const diffBalance = balance - prevTotals.balance;
+
+      const fmt = (diff) => `${diff >= 0 ? '+' : '-'} R$ ${Math.abs(diff).toFixed(2)}`;
+      const trend = (diff) => diff >= 0 ? '📈' : '📉';
+
+      report += `\n📅 *Comparação com mês anterior:*\n`;
+      report += `  ${trend(diffIncome)} Receitas: ${fmt(diffIncome)}\n`;
+      report += `  ${trend(-diffExpense)} Despesas: ${fmt(diffExpense)}\n`;
+      report += `  ${trend(diffBalance)} Saldo: ${fmt(diffBalance)}\n`;
+    }
 
     return report;
   }

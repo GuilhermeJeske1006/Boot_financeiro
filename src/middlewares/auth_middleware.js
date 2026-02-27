@@ -10,8 +10,8 @@ class AuthMiddleware {
     }
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     try {
-      const secret = process.env.JWT_SECRET || 'your_jwt_secret';
-      const decoded = jwt.verify(cleanToken, secret);
+      const secret = process.env.JWT_SECRET;
+      if (!secret) throw new Error('[FATAL] JWT_SECRET não configurado');      const decoded = jwt.verify(cleanToken, secret);
 
       const session = await AuthService.findSessionByToken(cleanToken);
       if (!session) {

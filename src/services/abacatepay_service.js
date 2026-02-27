@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const abacatePayRepository = require('../repositories/abacatepay_repository');
 const FormatHelper = require('../helpers/format_helper');
 
@@ -39,8 +40,6 @@ class AbacatePayService {
       },
     };
 
-    console.log('[AbacatePay] Enviando payload:', JSON.stringify(payload, null, 2));
-
     const data = await abacatePayRepository.createBilling(payload);
 
     const url = data.url ?? data.data?.url;
@@ -57,7 +56,13 @@ class AbacatePayService {
    * Verifica a autenticidade do webhook via query string secret.
    */
   verifyWebhookSecret(receivedSecret) {
-    return receivedSecret === process.env.ABACATEPAY_WEBHOOK_SECRET;
+    const expected = process.env.ABACATEPAY_WEBHOOK_SECRET;
+    if (!expected || !receivedSecret) return false;
+    try {
+      return crypto.timingSafeEqual(Buffer.from(receivedSecret), Buffer.from(expected));
+    } catch {
+      return false;
+    }
   }
 
   /**
