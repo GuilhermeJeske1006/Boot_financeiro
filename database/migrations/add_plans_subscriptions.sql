@@ -31,11 +31,14 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     expires_at               DATETIME     NULL      COMMENT 'NULL = sem expiração (plano free)',
     payment_provider         ENUM('manual', 'stripe', 'abacatepay') NOT NULL DEFAULT 'manual',
     external_subscription_id VARCHAR(255) NULL,
+    billing_url              TEXT         NULL      COMMENT 'URL do billing MULTIPLE_PAYMENTS para renovação',
     created_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     CONSTRAINT fk_subscriptions_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES plans (id)
+    CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES plans (id),
+    INDEX idx_subscriptions_user_status (user_id, status),
+    INDEX idx_subscriptions_renewal     (status, payment_provider, expires_at)
 );
 
 -- 3. Seed dos planos padrão

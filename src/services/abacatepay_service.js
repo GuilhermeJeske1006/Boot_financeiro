@@ -19,7 +19,7 @@ class AbacatePayService {
     }
 
     const payload = {
-      frequency: 'ONE_TIME',
+      frequency: 'MULTIPLE_PAYMENTS',
       methods: ['PIX', 'CARD'],
       returnUrl: process.env.APP_URL ,
       completionUrl: process.env.APP_URL,

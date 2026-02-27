@@ -1,4 +1,4 @@
-const { Subscription, Plan, Transaction } = require('../models');
+const { Subscription, Plan, Transaction, User } = require('../models');
 const { Op } = require('sequelize');
 
 class SubscriptionRepository {
@@ -71,7 +71,7 @@ class SubscriptionRepository {
   }
 
   // Chamado pelo webhook após confirmação de pagamento
-  async upgradeByPayment(userId, planName, externalSubscriptionId) {
+  async upgradeByPayment(userId, planName, externalSubscriptionId, billingUrl = null) {
     const plan = await Plan.findOne({ where: { name: planName, is_active: true } });
     if (!plan) {
       throw new Error(`Plano '${planName}' não encontrado`);
@@ -93,11 +93,39 @@ class SubscriptionRepository {
       expires_at: expiresAt,
       payment_provider: 'abacatepay',
       external_subscription_id: externalSubscriptionId,
+      billing_url: billingUrl,
+    });
+  }
+
+  // Retorna assinaturas pagas que vencem em exatamente daysAhead dias
+  async findExpiringSoon(daysAhead = 5) {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead);
+    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead + 1);
+
+    return Subscription.findAll({
+      where: {
+        status: 'active',
+        payment_provider: 'abacatepay',
+        expires_at: { [Op.between]: [from, to] },
+      },
+      include: [
+        { model: Plan, as: 'plan' },
+        { model: User, as: 'user' },
+      ],
     });
   }
 
   async findAllPlans() {
     return Plan.findAll({ where: { is_active: true }, order: [['price_brl', 'ASC']] });
+  }
+
+  async cancelToFreePlan(userId) {
+    await Subscription.update(
+      { status: 'cancelled' },
+      { where: { user_id: userId, status: 'active' } }
+    );
+    return this.assignFreePlan(userId);
   }
 }
 

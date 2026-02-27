@@ -48,6 +48,10 @@ class Subscription extends Model {
           type: DataTypes.STRING,
           allowNull: true,
         },
+        billing_url: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
         created_at: {
           type: DataTypes.DATE,
           allowNull: false,

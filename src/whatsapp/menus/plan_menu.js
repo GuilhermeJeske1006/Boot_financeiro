@@ -36,6 +36,9 @@ class PlanMenu {
       return false; // business não tem upgrade
     });
 
+    const showCancel = planName !== 'free';
+    const cancelOptionNumber = upgradePlans.length + 1;
+
     if (upgradePlans.length > 0) {
       msg += `🚀 *Opções de upgrade:*\n\n`;
       upgradePlans.forEach((plan, index) => {
@@ -56,10 +59,14 @@ class PlanMenu {
       msg += `🏆 *Você já possui o melhor plano disponível!*\n\n`;
     }
 
+    if (showCancel) {
+      msg += `*${cancelOptionNumber}* ➜ Cancelar plano ❌\n`;
+    }
+
     msg += `*0* ➜ Voltar ao menu\n`;
     msg += `\n_Digite o número da opção_ ✍️`;
 
-    return { message: msg, upgradePlans };
+    return { message: msg, upgradePlans, showCancel, cancelOptionNumber };
   }
 
   async handleStep(state, input, userId) {
@@ -72,6 +79,11 @@ class PlanMenu {
       return { done: true, message: '' };
     }
 
+    // Etapa: aguardando confirmação de cancelamento
+    if (state.data.awaitingCancelConfirm) {
+      return await this._handleCancelConfirm(state, input, userId);
+    }
+
     // Etapa: aguardando e-mail do usuário
     if (state.data.awaitingEmail) {
       return await this._handleEmailStep(state, input, userId);
@@ -82,14 +94,30 @@ class PlanMenu {
       return await this._handleCpfStep(state, input, userId);
     }
 
-    // Etapa 1: seleção do plano
+    // Etapa 1: seleção do plano/ação
     const upgradePlans = state.data.upgradePlans || [];
+    const showCancel = state.data.showCancel ?? false;
+    const cancelOptionNumber = state.data.cancelOptionNumber ?? upgradePlans.length + 1;
     const index = parseInt(input) - 1;
 
-    if (isNaN(index) || index < 0 || index >= upgradePlans.length) {
-      const { message, upgradePlans: plans } = await this.show(userId);
+    // Verificar se é opção de cancelamento
+    if (showCancel && input === String(cancelOptionNumber)) {
       return {
-        newState: { ...state, data: { upgradePlans: plans } },
+        newState: { ...state, data: { ...state.data, awaitingCancelConfirm: true } },
+        message:
+          `⚠️ *Cancelar plano*\n\n` +
+          `Tem certeza que deseja cancelar seu plano?\n` +
+          `Você voltará para o plano *Grátis* imediatamente.\n\n` +
+          `*1* ➜ Sim, cancelar\n` +
+          `*2* ➜ Não, manter plano\n\n` +
+          `_Digite o número da opção_ ✍️`,
+      };
+    }
+
+    if (isNaN(index) || index < 0 || index >= upgradePlans.length) {
+      const { message, upgradePlans: plans, showCancel: sc, cancelOptionNumber: cn } = await this.show(userId);
+      return {
+        newState: { ...state, data: { upgradePlans: plans, showCancel: sc, cancelOptionNumber: cn } },
         message: `⚠️ Opção inválida.\n\n${message}`,
       };
     }
@@ -152,6 +180,31 @@ class PlanMenu {
     const user = await UserRepository.findById(userId);
 
     return await this._generatePaymentLink(state, user, state.data.selectedPlan);
+  }
+
+  async _handleCancelConfirm(state, input, userId) {
+    if (input === '1') {
+      try {
+        await SubscriptionRepository.cancelToFreePlan(userId);
+        return {
+          done: true,
+          message: `✅ *Plano cancelado com sucesso!*\n\nVocê foi movido para o plano *Grátis*.\nSuas transações existentes foram mantidas.`,
+        };
+      } catch (error) {
+        console.error('Erro ao cancelar plano:', error);
+        return {
+          newState: state,
+          message: `❌ Não foi possível cancelar o plano. Tente novamente em instantes.`,
+        };
+      }
+    }
+
+    // Qualquer outra opção volta ao menu de planos
+    const { message, upgradePlans, showCancel, cancelOptionNumber } = await this.show(userId);
+    return {
+      newState: { ...state, data: { upgradePlans, showCancel, cancelOptionNumber } },
+      message,
+    };
   }
 
   async _generatePaymentLink(state, user, selectedPlan) {

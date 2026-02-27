@@ -36,8 +36,8 @@ class WebhookController {
 
       const { planName, userId } = parsed;
 
-      // 4. Atualiza a assinatura no banco
-      await SubscriptionRepository.upgradeByPayment(userId, planName, billing.id);
+      // 4. Atualiza a assinatura no banco (salva também a URL do billing para renovações)
+      await SubscriptionRepository.upgradeByPayment(userId, planName, billing.id, billing.url ?? null);
 
       // 5. Envia confirmação no WhatsApp
       await _sendConfirmationWhatsApp(userId, planName);

@@ -152,8 +152,8 @@ class SessionManager {
         this.sessions.set(phone, { flow: 'manage_companies', step: 1, data: {}, context });
         return await CompanyMenu.showMenu(userId);
       case '5': {
-        const { message, upgradePlans } = await PlanMenu.show(userId);
-        this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans }, context });
+        const { message, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
+        this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans, showCancel, cancelOptionNumber }, context });
         return message;
       }
       case '0':
