@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const database = require('./configs/database');
 const routes = require('./routes');
+const errorHandler = require('./middlewares/error_handler');
 const seedCategories = require('./configs/seed_categories');
 const seedPlans = require('./configs/seed_plans');
 
@@ -39,5 +40,8 @@ app.use(express.json({ limit: '10kb' }));
 })();
 
 app.use('/api', routes);
+
+// Deve ficar após todas as rotas — captura erros passados via next(err)
+app.use(errorHandler);
 
 module.exports = app;

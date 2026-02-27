@@ -1,6 +1,7 @@
 const AbacatePayService = require('../services/abacatepay_service');
 const SubscriptionRepository = require('../repositories/subscription_repository');
 const UserRepository = require('../repositories/user_respository');
+const SlackService = require('../services/slack_service');
 const { getClient, markWebhookMessage } = require('../whatsapp/client');
 const SessionManager = require('../whatsapp/session_manager');
 const MainMenu = require('../whatsapp/menus/main_menu');
@@ -38,7 +39,17 @@ class WebhookController {
       // 4. Atualiza a assinatura no banco (salva também a URL do billing para renovações)
       await SubscriptionRepository.upgradeByPayment(userId, planName, billing.id, billing.url ?? null);
 
-      // 5. Envia confirmação no WhatsApp
+      // 5. Notifica o Slack sobre a nova assinatura
+      const user = await UserRepository.findById(userId);
+      SlackService.notifySubscription({
+        userId,
+        userName: user?.name,
+        userEmail: user?.email,
+        planName,
+        billingId: billing.id,
+      });
+
+      // 6. Envia confirmação no WhatsApp
       await _sendConfirmationWhatsApp(userId, planName);
 
       return res.status(200).json({ received: true });
