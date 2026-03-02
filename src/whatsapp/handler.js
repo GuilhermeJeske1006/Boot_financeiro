@@ -1,6 +1,8 @@
+const { MessageMedia } = require('whatsapp-web.js');
 const SessionManager = require('./session_manager');
 const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
+const { getClient } = require('./client');
 
 var MY_ID = '215993922150427@lid';
 
@@ -35,7 +37,13 @@ async function handleMessage(message) {
 
   const response = await SessionManager.processInput(phone, user.id, userInput);
 
-  if (response) {
+  if (!response) return;
+
+  if (typeof response === 'object' && response.media) {
+    const media = new MessageMedia(response.media.mimetype, response.media.data, response.media.filename);
+    const client = getClient();
+    await client.sendMessage(phone, media, { caption: response.text || '' });
+  } else {
     await message.reply(response);
   }
 }

@@ -128,7 +128,6 @@ class RegistrationService {
           `✅ Cadastro realizado com sucesso!\n\n` +
           `🏢 Empresa *${state.company_name}* cadastrada!\n\n` +
           `Bem-vindo(a) ao *Bot Financeiro*, *${user.name}*! 🎉\n\n` +
-          `━━━━━━━━━━━━━━━━━━\n` +
           `🎯 Esta sessão é para:\n\n` +
           `👤 *1* ➜ Pessoa Física\n` +
           `🏢 *2* ➜ Empresa\n\n` +

@@ -18,7 +18,7 @@ class ReportMenu {
 
   async showMenu(userId) {
     let msg = `📊 *Relatórios Financeiros*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `\n`;
     msg += `*Escolha o tipo de relatório:*\n\n`;
     msg += `  👤 *1* ➜ Relatório Pessoal\n`;
     msg += `  🏢 *2* ➜ Relatório por Empresa\n`;

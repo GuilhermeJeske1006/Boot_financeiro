@@ -12,10 +12,11 @@ class MainMenu {
     const planName = subscription?.plan?.name || 'free';
     const planLabel = planName === 'free' ? '🆓 Grátis' : planName === 'pro' ? '⭐ Pro' : '🏆 Business';
     const hasRecurring = !!subscription?.plan?.recurring_transactions;
+    const hasExport = !!subscription?.plan?.pdf_export;
 
     let menu = (
       `💰 *Bot Financeiro* 💰\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `\n` +
       `Plano: ${planLabel}\n\n` +
       `Escolha uma opção:\n\n` +
       `1️⃣ ➜ Registrar Entrada 📈\n` +
@@ -31,6 +32,10 @@ class MainMenu {
 
     if (hasRecurring) {
       menu += `6️⃣ ➜ Transações Recorrentes 🔄\n`;
+    }
+
+    if (hasExport) {
+      menu += `7️⃣ ➜ Exportar Relatório (PDF/Excel) 📤\n`;
     }
 
     menu += `0️⃣ ➜ Sair 🔚\n`;

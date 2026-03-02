@@ -15,7 +15,7 @@ class PlanMenu {
     const displayName = currentPlan?.display_name || 'Grátis';
 
     let msg = `💳 *Meu Plano*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `\n`;
     msg += `📦 Plano atual: *${displayName}*\n`;
 
     if (planName === 'free') {

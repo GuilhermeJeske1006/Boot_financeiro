@@ -17,14 +17,15 @@ class TransactionRepository {
 
     if (companyId) {
       whereClause.company_id = companyId;
-    } else {
-      const userCompanies = await Company.findAll({
-        where: { user_id: userId },
-        attributes: ['id']
-      });
-      const companyIds = userCompanies.map(uc => uc.id);
-      whereClause.company_id = companyIds;
     }
+    //  else {
+    //   const userCompanies = await Company.findAll({
+    //     where: { user_id: userId },
+    //     attributes: ['id']
+    //   });
+    //   const companyIds = userCompanies.map(uc => uc.id);
+    //   whereClause.company_id = companyIds;
+    // }
 
     if (categoryId) whereClause.category_id = categoryId;
 

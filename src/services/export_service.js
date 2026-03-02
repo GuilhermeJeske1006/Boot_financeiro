@@ -23,6 +23,9 @@ async function buildReportData(year, month, userId, companyId) {
     TransactionService.getMonthSummary(year, month, userId, companyId || null),
   ]);
 
+  console.log('Transactions:', transactions);
+  console.log('Summary:', summary);
+
   let totalIncome = 0;
   let totalExpense = 0;
   const incomeRows = [];

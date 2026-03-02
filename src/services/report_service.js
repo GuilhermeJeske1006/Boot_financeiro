@@ -49,7 +49,7 @@ class ReportService {
     let report = `📊 *Relatório Financeiro*\n`;
     report += `${reportType}\n`;
     report += `🗓️ *${MONTH_NAMES[month - 1]}/${year}*\n`;
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    report += `━━━━━━━━\n\n`;
 
     report += `💚 *Entradas (Receitas):*\n`;
     if (incomeByCategory.length === 0) {
@@ -71,7 +71,7 @@ class ReportService {
     }
     report += `  💸 *Total: R$ ${totalExpense.toFixed(2)}*\n\n`;
 
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `━━━━━━━━\n`;
     const emoji = balance >= 0 ? '🤑' : '😰';
     const sign = balance >= 0 ? '+' : '-';
     report += `${emoji} *Saldo do mês: ${sign} R$ ${Math.abs(balance).toFixed(2)}*\n`;
@@ -97,7 +97,7 @@ class ReportService {
     const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
     let report = `*Relatório Mensal da Empresa*\n`;
     report += `Ano: ${year}, Mês: ${month}\n`;
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `━━━━━━━━\n`;
 
     let totalIncome = 0;
     let totalExpense = 0;
@@ -111,7 +111,7 @@ class ReportService {
     }
 
     report += `\n💰 *Receitas Totais: R$ ${totalIncome.toFixed(2)}*\n`;
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `━━━━━━━━\n`;
 
     const incomeByCategory = summary.filter(r => r.type === 'income');
     if (incomeByCategory.length === 0) {
@@ -123,7 +123,7 @@ class ReportService {
     }
 
     report += `\n💸 *Despesas Totais: R$ ${totalExpense.toFixed(2)}*\n`;
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `━━━━━━━━\n`;
 
     const expenseByCategory = summary.filter(r => r.type === 'expense');
     if (expenseByCategory.length === 0) {
@@ -134,7 +134,7 @@ class ReportService {
         }
     }
 
-    report += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `━━━━━━━━\n`;
 
     const balance = totalIncome - totalExpense;
     const emoji = balance >= 0 ? '🟢' : '🔴';

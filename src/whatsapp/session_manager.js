@@ -4,6 +4,7 @@ const CompanyMenu = require('./menus/company_menu');
 const ReportMenu = require('./menus/report_menu');
 const PlanMenu = require('./menus/plan_menu');
 const RecurringTransactionMenu = require('./menus/recurring_transaction_menu');
+const ExportMenu = require('./menus/export_menu');
 const CompanyService = require('../services/company_service');
 const SubscriptionService = require('../services/subscription_service');
 
@@ -106,6 +107,8 @@ class SessionManager {
           return await this._handlePlanFlow(phone, userId, input);
         case 'recurring_transactions':
           return await this._handleRecurringTransactionFlow(phone, userId, input);
+        case 'export':
+          return await this._handleExportFlow(phone, userId, input);
         default:
           this._resetToMain(phone);
           return await MainMenu.show(userId);
@@ -165,6 +168,18 @@ class SessionManager {
         if (!hasFeature) return await MainMenu.show(userId);
         this.sessions.set(phone, { flow: 'recurring_transactions', step: 1, data: {}, context });
         return RecurringTransactionMenu.showMainMenu();
+      }
+      case '7': {
+        const hasExport = await SubscriptionService.hasFeature(userId, 'pdf_export');
+        if (!hasExport) {
+          return (
+            `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
+            `Para exportar relatórios em PDF ou Excel, faça upgrade do seu plano.\n\n` +
+            `Digite *5* para ver os planos disponíveis.`
+          );
+        }
+        this.sessions.set(phone, { flow: 'export', step: 1, data: {}, context });
+        return ExportMenu.showMenu();
       }
       case '0':
         this.sessions.delete(phone);
@@ -319,6 +334,28 @@ class SessionManager {
     if (result.done) {
       this._resetToMain(phone);
       const mainMenu = await MainMenu.show(userId);
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _handleExportFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await ExportMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
+
+      if (result.media) {
+        return {
+          media: result.media,
+          text: result.message ? `${result.message}\n\n${mainMenu}` : mainMenu,
+        };
+      }
+
       return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
     }
 

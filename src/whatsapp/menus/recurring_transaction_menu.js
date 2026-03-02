@@ -22,7 +22,7 @@ class RecurringTransactionMenu {
   showMainMenu() {
     return (
       `🔄 *Transações Recorrentes*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `\n\n` +
       `Escolha uma opção:\n\n` +
       `1️⃣ ➜ Ver transações recorrentes 📋\n` +
       `2️⃣ ➜ Cadastrar nova 📝\n` +
@@ -253,7 +253,7 @@ class RecurringTransactionMenu {
       const freqEmoji = FREQUENCY_EMOJIS[d.frequency];
 
       let summary = `🔄 *Resumo da Recorrência:*\n`;
-      summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      summary += `\n`;
       summary += `${locationLabel}\n`;
       summary += `${typeLabel}\n`;
       summary += `🏷️ Categoria: ${d.category_name}\n`;
@@ -261,7 +261,6 @@ class RecurringTransactionMenu {
       summary += `📝 Descrição: ${d.description || '(sem descrição)'}\n`;
       summary += `${freqEmoji} Frequência: ${FREQUENCY_LABELS[d.frequency]}\n`;
       summary += `📅 Próxima data: ${dateDisplay}\n\n`;
-      summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
       summary += `✅ *S* para confirmar\n`;
       summary += `❌ *N* para cancelar`;
 

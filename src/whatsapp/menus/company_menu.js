@@ -9,7 +9,7 @@ class CompanyMenu {
     ]);
 
     let msg = `🏢 *Gerenciar Empresas*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `\n\n`;
 
     if (companies.length > 0) {
       msg += `📊 Suas empresas:\n\n`;
@@ -22,7 +22,7 @@ class CompanyMenu {
       msg += `⚠️ Você ainda não tem empresas cadastradas.\n\n`;
     }
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `\n`;
     msg += `*Opções:*\n`;
     if (canAdd) {
       msg += `  ➕ *1* ➜ Cadastrar empresa\n`;
@@ -103,13 +103,12 @@ class CompanyMenu {
         const newState = { ...state, step: 6, data: { ...state.data, address } };
 
         let summary = `🏢 *Resumo da Empresa:*\n`;
-        summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        summary += `\n`;
         summary += `📝 Nome: ${state.data.name}\n`;
         summary += `📄 CNPJ: ${state.data.cnpj || '(não informado)'}\n`;
         summary += `📧 E-mail: ${state.data.email || '(não informado)'}\n`;
         summary += `📱 Telefone: ${state.data.phone || '(não informado)'}\n`;
         summary += `📍 Endereço: ${address || '(não informado)'}\n\n`;
-        summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
         summary += `✅ *S* para confirmar\n`;
         summary += `❌ *N* para cancelar`;
 
