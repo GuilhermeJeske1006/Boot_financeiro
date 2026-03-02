@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: node-app
+    env: node
+    buildCommand: npm install && npx puppeteer@24.37.4 browsers install chrome
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/.puppeteer_cache

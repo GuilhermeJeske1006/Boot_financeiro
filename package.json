@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "postinstall": "npx puppeteer browsers install chrome",
+    "postinstall": "npx puppeteer@24.37.4 browsers install chrome",
     "dev": "NODE_ENV=local node src/server.js",
     "start": "node src/server.js",
     "start:staging": "NODE_ENV=staging node src/server.js",
