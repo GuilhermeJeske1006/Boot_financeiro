@@ -2,7 +2,6 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 function resolveChromePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
@@ -10,7 +9,7 @@ function resolveChromePath() {
   }
   const cacheDir =
     process.env.PUPPETEER_CACHE_DIR ||
-    path.join(os.homedir(), '.cache', 'puppeteer');
+    path.join(process.cwd(), '.puppeteer_cache');
   const chromeCacheDir = path.join(cacheDir, 'chrome');
   if (!fs.existsSync(chromeCacheDir)) return undefined;
   const versions = fs

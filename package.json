@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "postinstall": "npx puppeteer@24.37.4 browsers install chrome",
+    "postinstall": "PUPPETEER_CACHE_DIR=$(pwd)/.puppeteer_cache npx puppeteer@24.37.4 browsers install chrome",
     "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
