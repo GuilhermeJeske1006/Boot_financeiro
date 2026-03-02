@@ -27,7 +27,7 @@ class EmailQueue extends Model {
           defaultValue: 'pending',
         },
         attempts: {
-          type: DataTypes.TINYINT,
+          type: DataTypes.SMALLINT,
           allowNull: false,
           defaultValue: 0,
         },
