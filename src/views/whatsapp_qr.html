@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp - Conexão</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .logo {
+      width: 56px;
+      height: 56px;
+      background: #25d366;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .logo svg { fill: #fff; }
+
+    h1 {
+      font-size: 1.4rem;
+      color: #111b21;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #667781;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+
+    #qr-container img {
+      width: 220px;
+      height: 220px;
+      border: 1px solid #e9edef;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    #qr-container p {
+      color: #667781;
+      font-size: 0.85rem;
+    }
+
+    #connected-msg {
+      display: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+    }
+
+    .badge.ok { background: #e9fbe9; color: #1a7f37; }
+    .badge.waiting { background: #fff3cd; color: #856404; }
+    .badge.loading { background: #e9edef; color: #667781; }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .dot.green { background: #25d366; }
+    .dot.yellow { background: #f0ad4e; }
+    .dot.gray { background: #adb5bd; }
+
+    .refresh-info {
+      margin-top: 20px;
+      font-size: 0.78rem;
+      color: #adb5bd;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      </svg>
+    </div>
+
+    <h1>WhatsApp Bot</h1>
+    <p class="subtitle">Painel de conexão</p>
+
+    <div id="status-badge" class="badge loading">
+      <span class="dot gray"></span>
+      <span id="status-text">Verificando...</span>
+    </div>
+
+    <div id="qr-container" style="display:none">
+      <img id="qr-img" src="" alt="QR Code">
+      <p>Abra o WhatsApp &rarr; Dispositivos vinculados &rarr; Vincular um dispositivo</p>
+    </div>
+
+    <div id="connected-msg">
+      <p style="color:#1a7f37; font-size:0.9rem;">O bot está ativo e recebendo mensagens.</p>
+    </div>
+
+    <p class="refresh-info">Atualiza automaticamente a cada 5 segundos</p>
+  </div>
+
+  <script>
+    const badge = document.getElementById('status-badge');
+    const statusText = document.getElementById('status-text');
+    const dot = badge.querySelector('.dot');
+    const qrContainer = document.getElementById('qr-container');
+    const qrImg = document.getElementById('qr-img');
+    const connectedMsg = document.getElementById('connected-msg');
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/whatsapp/status');
+        const data = await res.json();
+
+        if (data.connected) {
+          badge.className = 'badge ok';
+          dot.className = 'dot green';
+          statusText.textContent = 'Conectado';
+          qrContainer.style.display = 'none';
+          connectedMsg.style.display = 'block';
+        } else if (data.qr) {
+          badge.className = 'badge waiting';
+          dot.className = 'dot yellow';
+          statusText.textContent = 'Aguardando escaneamento';
+          qrImg.src = data.qr;
+          qrContainer.style.display = 'block';
+          connectedMsg.style.display = 'none';
+        } else {
+          badge.className = 'badge loading';
+          dot.className = 'dot gray';
+          statusText.textContent = 'Iniciando...';
+          qrContainer.style.display = 'none';
+          connectedMsg.style.display = 'none';
+        }
+      } catch {
+        badge.className = 'badge loading';
+        dot.className = 'dot gray';
+        statusText.textContent = 'Erro de conexão';
+      }
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 5000);
+  </script>
+</body>
+</html>

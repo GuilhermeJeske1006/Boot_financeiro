@@ -11,6 +11,8 @@ const errorHandler = require('./middlewares/error_handler');
 const seedCategories = require('./configs/seed_categories');
 const seedPlans = require('./configs/seed_plans');
 
+const whatsappRoutes = require('./routes/whatsapp_routes');
+
 const app = express();
 
 app.use(helmet());
@@ -33,6 +35,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }));
 
+app.use('/whatsapp', whatsappRoutes);
 app.use('/api', routes);
 
 // Deve ficar após todas as rotas — captura erros passados via next(err)

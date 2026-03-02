@@ -22,9 +22,15 @@ function resolveChromePath() {
 }
 
 let client = null;
+let currentQr = null;
+let connected = false;
 
 // Rastreia mensagens enviadas programaticamente (webhook) para o handler ignorar
 const pendingWebhookMessages = new Map();
+
+function getWhatsAppStatus() {
+  return { connected, qr: currentQr };
+}
 
 function markWebhookMessage(phone) {
   pendingWebhookMessages.set(phone, (pendingWebhookMessages.get(phone) || 0) + 1);
@@ -56,11 +62,15 @@ function initializeWhatsApp() {
   });
 
   client.on('qr', (qr) => {
+    currentQr = qr;
+    connected = false;
     console.log('Escaneie o QR code abaixo para conectar o WhatsApp:');
     qrcode.generate(qr, { small: true });
   });
 
   client.on('ready', () => {
+    connected = true;
+    currentQr = null;
     console.log('Bot do WhatsApp conectado e pronto!');
   });
 
@@ -73,6 +83,7 @@ function initializeWhatsApp() {
   });
 
   client.on('disconnected', (reason) => {
+    connected = false;
     console.log('WhatsApp desconectado:', reason);
   });
 
@@ -88,4 +99,4 @@ function getClient() {
   return client;
 }
 
-module.exports = { initializeWhatsApp, getClient, markWebhookMessage, consumeWebhookMessage };
+module.exports = { initializeWhatsApp, getClient, markWebhookMessage, consumeWebhookMessage, getWhatsAppStatus };
