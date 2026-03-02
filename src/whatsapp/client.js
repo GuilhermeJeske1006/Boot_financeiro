@@ -1,5 +1,26 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+function resolveChromePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const cacheDir =
+    process.env.PUPPETEER_CACHE_DIR ||
+    path.join(os.homedir(), '.cache', 'puppeteer');
+  const chromeCacheDir = path.join(cacheDir, 'chrome');
+  if (!fs.existsSync(chromeCacheDir)) return undefined;
+  const versions = fs
+    .readdirSync(chromeCacheDir)
+    .filter((v) => fs.statSync(path.join(chromeCacheDir, v)).isDirectory())
+    .sort();
+  if (!versions.length) return undefined;
+  const binary = path.join(chromeCacheDir, versions[versions.length - 1], 'chrome-linux64', 'chrome');
+  return fs.existsSync(binary) ? binary : undefined;
+}
 
 let client = null;
 
@@ -25,7 +46,7 @@ function initializeWhatsApp() {
     }),
     puppeteer: {
       headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: resolveChromePath(),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

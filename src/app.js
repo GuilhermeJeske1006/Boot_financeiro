@@ -1,6 +1,5 @@
-require('dotenv').config({ path: `.env.${process.env.NODE_ENV || 'local'}` });
-const validateEnv = require('./configs/env_validator');
-validateEnv();
+require('dotenv').config();
+
 
 require("jsonwebtoken");
 const express = require('express');
