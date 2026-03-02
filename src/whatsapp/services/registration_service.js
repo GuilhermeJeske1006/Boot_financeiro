@@ -2,6 +2,7 @@ const UserRepository = require('../../repositories/user_respository');
 const CompanyService = require('../../services/company_service');
 const SlackService = require('../../services/slack_service');
 const MainMenu = require('../menus/main_menu');
+const FormatHelper = require('../../helpers/format_helper');
 
 const pendingRegistrations = {};
 
@@ -70,7 +71,7 @@ class RegistrationService {
 
     if (state.step === 'company_name') {
       if (!userInput) {
-        return { reply: '⚠️ Nome da empresa não pode ser vazio. Por favor, digite o nome:' };
+      return { reply: '⚠️ Nome da empresa não pode ser vazio. Por favor, digite o nome:' };
       }
 
       pendingRegistrations[phone] = { ...state, step: 'cnpj', company_name: userInput };
@@ -79,18 +80,31 @@ class RegistrationService {
 
     if (state.step === 'cnpj') {
       const cnpj = userInput.toLowerCase() === 'pular' ? null : userInput.replace(/[^\d]/g, '');
+      
+      if (cnpj && !FormatHelper.isValidCNPJ(cnpj)) {
+      return { reply: '⚠️ CNPJ inválido. Por favor, digite um CNPJ válido (ou *pular*):' };
+      }
+
       pendingRegistrations[phone] = { ...state, step: 'email', cnpj };
       return { reply: `📧 Digite o *e-mail* da empresa (ou *pular*):` };
     }
 
     if (state.step === 'email') {
-      const email = userInput.toLowerCase() === 'pular' ? null : userInput;
+      const skip = userInput.toLowerCase() === 'pular';
+      if (!skip && !FormatHelper.isValidEmail(userInput)) {
+        return { reply: '⚠️ E-mail inválido. Por favor, digite um e-mail válido (ou *pular*):' };
+      }
+      const email = skip ? null : userInput;
       pendingRegistrations[phone] = { ...state, step: 'phone_company', email };
       return { reply: `📱 Digite o *telefone* da empresa (ou *pular*):` };
     }
 
     if (state.step === 'phone_company') {
-      const phoneCompany = userInput.toLowerCase() === 'pular' ? null : userInput;
+      const skip = userInput.toLowerCase() === 'pular';
+      if (!skip && !FormatHelper.isValidPhone(userInput)) {
+        return { reply: '⚠️ Telefone inválido. Por favor, digite um telefone válido (ou *pular*):' };
+      }
+      const phoneCompany = skip ? null : userInput;
       pendingRegistrations[phone] = { ...state, step: 'address', phone_company: phoneCompany };
       return { reply: `📍 Digite o *endereço* da empresa (ou *pular*):` };
     }

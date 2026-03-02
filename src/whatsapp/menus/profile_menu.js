@@ -36,9 +36,10 @@ class ProfileMenu {
           return { newState: state, message: '⚠️ Nome não pode ser vazio. Digite o novo nome:' };
         }
         const newName = input.trim();
+        const summary = `✅ Novo nome: *${newName}*\n\n✅ *S* para confirmar\n❌ *N* para cancelar`;
         return {
           newState: { ...state, step: 3, data: { ...state.data, newName } },
-          message: `✅ Novo nome: *${newName}*\n\n*S* para confirmar\n*N* para cancelar`,
+          message: summary,
         };
       }
 

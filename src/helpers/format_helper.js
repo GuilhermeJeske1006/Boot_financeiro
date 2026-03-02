@@ -20,6 +20,33 @@ class FormatHelper {
    * @param {string} value
    * @returns {string|undefined}
    */
+  static isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  static isValidPhone(phone) {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 13;
+  }
+
+  static isValidCNPJ(cnpj) {
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false;
+
+    const calc = (cnpj, len) => {
+      let sum = 0;
+      let pos = len - 7;
+      for (let i = len; i >= 1; i--) {
+        sum += parseInt(cnpj.charAt(len - i)) * pos--;
+        if (pos < 2) pos = 9;
+      }
+      const result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+      return result === parseInt(cnpj.charAt(len));
+    };
+
+    return calc(cnpj, 12) && calc(cnpj, 13);
+  }
+
   static formatCellphone(value) {
     if (!value) return undefined;
     const digits = value.replace('@c.us', '').replace(/\D/g, '').replace(/^55/, '');

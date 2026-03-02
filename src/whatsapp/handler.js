@@ -4,7 +4,7 @@ const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
 const { getClient } = require('./client');
 
-var MY_ID = '215993922150427@lid';
+var MY_ID = process.env.WHATSAPP_ID;
 
 async function handleMessage(message) {
   if (message.to !== MY_ID) return;

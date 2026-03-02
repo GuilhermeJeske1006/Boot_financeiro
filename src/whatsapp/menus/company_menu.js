@@ -1,3 +1,4 @@
+const FormatHelper = require('../../helpers/format_helper');
 const CompanyService = require('../../services/company_service');
 const SubscriptionService = require('../../services/subscription_service');
 
@@ -154,7 +155,7 @@ class CompanyMenu {
 
       const company = companies[index];
       let msg = `🏢 *${company.name}*\n`;
-      msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      msg += `\n`;
       msg += `📄 CNPJ: ${company.cnpj || '(não informado)'}\n`;
       msg += `📧 E-mail: ${company.email || '(não informado)'}\n`;
       msg += `📱 Telefone: ${company.phone || '(não informado)'}\n`;
@@ -186,16 +187,24 @@ class CompanyMenu {
     if (state.step === 2) {
       const name = input.toLowerCase() === 'pular' ? undefined : input.trim();
       return {
-        newState: { ...state, step: 3, data: { ...state.data, name } },
-        message: `📄 Digite o *novo CNPJ* (ou *pular* para manter):`,
+      newState: { ...state, step: 3, data: { ...state.data, name } },
+      message: `📄 Digite o *novo CNPJ* (ou *pular* para manter):`,
       };
     }
 
     if (state.step === 3) {
       const cnpj = input.toLowerCase() === 'pular' ? undefined : input.replace(/[^\d]/g, '');
+      
+      if (cnpj && !FormatHelper.isValidCNPJ(cnpj)) {
       return {
-        newState: { ...state, step: 4, data: { ...state.data, cnpj } },
-        message: `📧 Digite o *novo e-mail* (ou *pular* para manter):`,
+        newState: state,
+        message: `⚠️ CNPJ inválido. Digite um *novo CNPJ* válido (ou *pular* para manter):`,
+      };
+      }
+      
+      return {
+      newState: { ...state, step: 4, data: { ...state.data, cnpj } },
+      message: `📧 Digite o *novo e-mail* (ou *pular* para manter):`,
       };
     }
 
