@@ -275,13 +275,12 @@ class TransactionMenu {
     const transactionTypeLabel = state.data.is_personal ? 'Pessoa Física' : state.data.company_name;
 
     let summary = `${emoji} *Resumo da ${typeLabel}:*\n`;
-    summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    summary += `\n`;
     summary += `${transactionTypeIcon} Tipo: ${transactionTypeLabel}\n`;
     summary += `🏷️ Categoria: ${state.data.category_name}\n`;
     summary += `💲 Valor: R$ ${state.data.amount.toFixed(2)}\n`;
     summary += `📝 Descrição: ${state.data.description || '(sem descrição)'}\n`;
     summary += `📅 Data: ${dateStr}\n\n`;
-    summary += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     summary += `✅ *S* para confirmar\n`;
     summary += `❌ *N* para cancelar`;
 

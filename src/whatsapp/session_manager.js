@@ -5,6 +5,7 @@ const ReportMenu = require('./menus/report_menu');
 const PlanMenu = require('./menus/plan_menu');
 const RecurringTransactionMenu = require('./menus/recurring_transaction_menu');
 const ExportMenu = require('./menus/export_menu');
+const ProfileMenu = require('./menus/profile_menu');
 const CompanyService = require('../services/company_service');
 const SubscriptionService = require('../services/subscription_service');
 
@@ -88,7 +89,6 @@ class SessionManager {
     }
 
     const state = this._getSession(phone);
-    console.log('Current session state:', state);
 
     try {
       switch (state.flow) {
@@ -109,6 +109,8 @@ class SessionManager {
           return await this._handleRecurringTransactionFlow(phone, userId, input);
         case 'export':
           return await this._handleExportFlow(phone, userId, input);
+        case 'edit_profile':
+          return await this._handleProfileFlow(phone, userId, input);
         default:
           this._resetToMain(phone);
           return await MainMenu.show(userId);
@@ -180,6 +182,11 @@ class SessionManager {
         }
         this.sessions.set(phone, { flow: 'export', step: 1, data: {}, context });
         return ExportMenu.showMenu();
+      }
+      case '8': {
+        const { message } = await ProfileMenu.showProfile(userId);
+        this.sessions.set(phone, { flow: 'edit_profile', step: 1, data: {}, context });
+        return message;
       }
       case '0':
         this.sessions.delete(phone);
@@ -356,6 +363,20 @@ class SessionManager {
         };
       }
 
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _handleProfileFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await ProfileMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
       return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
     }
 

@@ -38,6 +38,7 @@ class MainMenu {
       menu += `7️⃣ ➜ Exportar Relatório (PDF/Excel) 📤\n`;
     }
 
+    menu += `8️⃣ ➜ Editar Perfil 👤\n`;
     menu += `0️⃣ ➜ Sair 🔚\n`;
     menu += `\n_Digite o número da opção desejada_ ✍️`;
 
