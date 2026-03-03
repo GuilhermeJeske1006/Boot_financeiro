@@ -23,19 +23,20 @@ class MainMenu {
     menu += `━━━ 💸 *Lançamentos* ━━━\n`;
     menu += `*1* ➜ Nova Entrada 📈\n`;
     menu += `*2* ➜ Nova Saída 📉\n`;
-    menu += `*3* ➜ Recorrentes 🔄${hasRecurring ? '' : lock}\n\n`;
+    menu += `*3* ➜ Editar Transação ✏️\n`;
+    menu += `*4* ➜ Recorrentes 🔄${hasRecurring ? '' : lock}\n\n`;
 
     menu += `━━━ 📊 *Relatórios* ━━━\n`;
-    menu += `*4* ➜ Relatório Mensal 📊\n`;
-    menu += `*5* ➜ Exportar PDF/Excel 📤${hasExport ? '' : lock}\n`;
-    menu += `*6* ➜ Metas e Orçamentos 🎯${hasBudgets ? '' : lock}\n\n`;
+    menu += `*5* ➜ Relatório Mensal 📊\n`;
+    menu += `*6* ➜ Exportar PDF/Excel 📤${hasExport ? '' : lock}\n`;
+    menu += `*7* ➜ Metas e Orçamentos 🎯${hasBudgets ? '' : lock}\n\n`;
 
     menu += `━━━ ⚙️ *Conta* ━━━\n`;
     if (hasCompanies) {
-      menu += `*7* ➜ Empresas 🏢\n`;
+      menu += `*8* ➜ Empresas 🏢\n`;
     }
-    menu += `*8* ➜ Meu Plano / Upgrade 💳\n`;
-    menu += `*9* ➜ Editar Perfil 👤\n`;
+    menu += `*9* ➜ Meu Plano / Upgrade 💳\n`;
+    menu += `*10* ➜ Editar Perfil 👤\n`;
     menu += `*0* ➜ Sair 🔚\n\n`;
 
     menu += `_Digite o número da opção_ ✍️`;

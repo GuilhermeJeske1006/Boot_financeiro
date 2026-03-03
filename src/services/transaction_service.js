@@ -57,6 +57,37 @@ class TransactionService {
     return TransactionRepository.getCompaniesSummary(userId, companyId, year, month, categoryId);
   }
 
+  async update(id, data, userId) {
+    const transaction = await TransactionRepository.findById(id);
+    if (!transaction) throw new Error('Transação não encontrada');
+
+    if (transaction.user_id && transaction.user_id !== userId) {
+      throw new Error('Sem permissão para editar esta transação');
+    }
+
+    if (transaction.company_id) {
+      const hasOwnership = await CompanyService.checkOwnership(transaction.company_id, userId);
+      if (!hasOwnership) {
+        throw new Error('Sem permissão para editar esta transação');
+      }
+    }
+
+    const allowed = {};
+    if (data.amount !== undefined) {
+      if (isNaN(data.amount) || Number(data.amount) <= 0) throw new Error('Valor deve ser um número positivo');
+      allowed.amount = Number(data.amount);
+    }
+    if (data.description !== undefined) allowed.description = data.description;
+    if (data.category_id !== undefined) {
+      const category = await CategoryService.findById(data.category_id);
+      if (!category) throw new Error('Categoria não encontrada');
+      allowed.category_id = data.category_id;
+    }
+    if (data.date !== undefined) allowed.date = data.date;
+
+    return TransactionRepository.update(id, allowed);
+  }
+
   async delete(id, userId) {
     const transaction = await TransactionRepository.findById(id);
     if (!transaction) throw new Error('Transação não encontrada');

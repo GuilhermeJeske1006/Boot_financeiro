@@ -1,5 +1,6 @@
 const UserService = require('../services/user_service');
 const SlackService = require('../services/slack_service');
+const AuthRepository = require('../repositories/auth_respository');
 
 class UserController {
   async create(req, res) {
@@ -9,8 +10,11 @@ class UserController {
 
         SlackService.notifyNewUser({ userId: user.id, userName: user.name, userEmail: user.email });
 
+        const token = await AuthRepository.createSessionForUser(user);
+
         return res.status(201).json({
             message: 'User created successfully',
+            token,
             user: {
                 id: user.id,
                 name: user.name,

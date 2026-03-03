@@ -11,6 +11,7 @@ const Plan = require('./plan_model');
 const Subscription = require('./subscription_model');
 const RecurringTransaction = require('./recurring_transaction_model');
 const CategoryBudget = require('./category_budget_model');
+const UserCompanyMember = require('./user_company_member_model');
 
 User.init(database.connection);
 Category.init(database.connection);
@@ -23,6 +24,7 @@ Plan.init(database.connection);
 Subscription.init(database.connection);
 RecurringTransaction.init(database.connection);
 CategoryBudget.init(database.connection);
+UserCompanyMember.init(database.connection);
 
 // associations
 Category.hasMany(Transaction, { foreignKey: 'category_id', as: 'transactions' });
@@ -67,6 +69,12 @@ CategoryBudget.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Category.hasMany(CategoryBudget, { foreignKey: 'category_id', as: 'budgets' });
 CategoryBudget.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 
+Company.hasMany(UserCompanyMember, { foreignKey: 'company_id', as: 'members' });
+UserCompanyMember.belongsTo(Company, { foreignKey: 'company_id', as: 'company' });
+
+User.hasMany(UserCompanyMember, { foreignKey: 'user_id', as: 'companyMemberships' });
+UserCompanyMember.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 module.exports = {
   User,
   Category,
@@ -79,4 +87,5 @@ module.exports = {
   Subscription,
   RecurringTransaction,
   CategoryBudget,
+  UserCompanyMember,
 };

@@ -92,6 +92,17 @@ class TransactionController {
     }
   }
 
+  async update(req, res) {
+    try {
+      const transaction = await TransactionService.update(req.params.id, req.body, req.userId);
+      return res.json({ message: 'Transação atualizada com sucesso', transaction });
+    } catch (error) {
+      console.log(error);
+      const status = error.message.includes('permissão') ? 403 : 400;
+      return res.status(status).json({ error: error.message });
+    }
+  }
+
   async delete(req, res) {
     try {
       await TransactionService.delete(req.params.id, req.userId);

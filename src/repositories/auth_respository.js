@@ -108,6 +108,23 @@ class AuthRepository {
     return true;
   }
 
+  async createSessionForUser(user) {
+    const secret = process.env.JWT_SECRET || 'your_jwt_secret';
+    const expiresIn = process.env.JWT_EXPIRES || '8h';
+    const token = jwt.sign({ user_id: user.id, email: user.email }, secret, { expiresIn });
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 8);
+
+    await Session.create({
+      user_id: user.id,
+      token,
+      expires_at: expiresAt,
+    });
+
+    return token;
+  }
+
   async resetPassword(token, newPassword) {
     const resetToken = await PasswordResetToken.findOne({
       where: {

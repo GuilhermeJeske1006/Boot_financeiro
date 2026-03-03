@@ -5,6 +5,7 @@ const { initializeWhatsApp } = require('./whatsapp/client');
 const { startMonthlyCron } = require('./cron/monthly_report');
 const { startSubscriptionRenewalCron } = require('./cron/subscription_renewal');
 const { startRecurringTransactionsCron } = require('./cron/recurring_transactions');
+const { startEmailQueueCron } = require('./cron/email_queue');
 
 // Captura erros não tratados e notifica o Slack antes de encerrar
 process.on('uncaughtException', (err) => {
@@ -40,6 +41,9 @@ process.on('unhandledRejection', (reason) => {
 
     // inicia o cron job de transações recorrentes
     startRecurringTransactionsCron();
+
+    // inicia o cron job de fila de emails
+    startEmailQueueCron();
   } catch (err) {
     console.error('[FATAL] Falha na inicialização do servidor:', err);
     process.exit(1);

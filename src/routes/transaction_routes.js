@@ -9,6 +9,7 @@ router.get('/', AuthMiddleware.verifyToken, TransactionController.findByMonth);
 router.get('/summary', AuthMiddleware.verifyToken, TransactionController.getMonthlySummary);
 router.get('/companies-summary', AuthMiddleware.verifyToken, TransactionController.getCompaniesSummary);
 router.get('/company/:companyId', AuthMiddleware.verifyToken, TransactionController.findByCompany);
+router.put('/:id', AuthMiddleware.verifyToken, TransactionController.update);
 router.delete('/:id', AuthMiddleware.verifyToken, TransactionController.delete);
 
 

@@ -157,6 +157,32 @@ class TransactionRepository {
     return Transaction.findByPk(id);
   }
 
+  async findRecentForUser(userId, limit = 10) {
+    const companies = await Company.findAll({ where: { user_id: userId }, attributes: ['id'] });
+    const companyIds = companies.map(c => c.id);
+
+    const whereClause = companyIds.length > 0
+      ? { [Op.or]: [{ user_id: userId }, { company_id: { [Op.in]: companyIds } }] }
+      : { user_id: userId };
+
+    return Transaction.findAll({
+      where: whereClause,
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name'] },
+        { model: Company, as: 'company', attributes: ['id', 'name'] },
+      ],
+      order: [['date', 'DESC']],
+      limit,
+    });
+  }
+
+  async update(id, data) {
+    const transaction = await Transaction.findByPk(id);
+    if (!transaction) throw new Error('Transação não encontrada');
+    await transaction.update(data);
+    return transaction;
+  }
+
   async delete(id) {
     const transaction = await Transaction.findByPk(id);
     if (!transaction) throw new Error('Transação não encontrada');
