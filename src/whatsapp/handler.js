@@ -2,7 +2,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const SessionManager = require('./session_manager');
 const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
-const { getClient } = require('./client');
+const { getClient, consumeWebhookMessage } = require('./client');
 
 var MY_ID = process.env.WHATSAPP_ID;
 
@@ -12,7 +12,7 @@ async function handleMessage(message) {
   if (message.hasQuotedMsg) return;
   if (message.from.includes('@g.us')) return;
   if (message.type !== 'chat') return;
-  if (message.from === MY_ID) return; // evita loop: bot enviando mensagem para si mesmo
+  if (consumeWebhookMessage(message.to)) return;
 
   const phone = message.from;
 
