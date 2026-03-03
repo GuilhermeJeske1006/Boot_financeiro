@@ -8,6 +8,7 @@ const subscriptionRoutes = require('./subscription_routes.js');
 const webhookRoutes = require('./webhook_routes.js');
 const recurringTransactionRoutes = require('./recurring_transaction_routes.js');
 const exportRoutes = require('./export_routes.js');
+const categoryBudgetRoutes = require('./category_budget_routes.js');
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use('/subscriptions', subscriptionRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/recurring-transactions', recurringTransactionRoutes);
 router.use('/export', exportRoutes);
+router.use('/budgets', categoryBudgetRoutes);
 
 module.exports = router;

@@ -13,34 +13,32 @@ class MainMenu {
     const planLabel = planName === 'free' ? '🆓 Grátis' : planName === 'pro' ? '⭐ Pro' : '🏆 Business';
     const hasRecurring = !!subscription?.plan?.recurring_transactions;
     const hasExport = !!subscription?.plan?.pdf_export;
+    const hasBudgets = !!subscription?.plan?.category_budgets;
 
-    let menu = (
-      `💰 *Bot Financeiro* 💰\n` +
-      `\n` +
-      `Plano: ${planLabel}\n\n` +
-      `Escolha uma opção:\n\n` +
-      `1️⃣ ➜ Registrar Entrada 📈\n` +
-      `2️⃣ ➜ Registrar Saída 📉\n` +
-      `3️⃣ ➜ Ver Relatório Mensal 📊\n`
-    );
+    const lock = ' 🔒';
 
+    let menu = `💰 *Bot Financeiro* 💰\n`;
+    menu += `Plano atual: ${planLabel}\n\n`;
+
+    menu += `━━━ 💸 *Lançamentos* ━━━\n`;
+    menu += `*1* ➜ Nova Entrada 📈\n`;
+    menu += `*2* ➜ Nova Saída 📉\n`;
+    menu += `*3* ➜ Recorrentes 🔄${hasRecurring ? '' : lock}\n\n`;
+
+    menu += `━━━ 📊 *Relatórios* ━━━\n`;
+    menu += `*4* ➜ Relatório Mensal 📊\n`;
+    menu += `*5* ➜ Exportar PDF/Excel 📤${hasExport ? '' : lock}\n`;
+    menu += `*6* ➜ Metas e Orçamentos 🎯${hasBudgets ? '' : lock}\n\n`;
+
+    menu += `━━━ ⚙️ *Conta* ━━━\n`;
     if (hasCompanies) {
-      menu += `4️⃣ ➜ Gerenciar Empresas 🏢\n`;
+      menu += `*7* ➜ Empresas 🏢\n`;
     }
+    menu += `*8* ➜ Meu Plano / Upgrade 💳\n`;
+    menu += `*9* ➜ Editar Perfil 👤\n`;
+    menu += `*0* ➜ Sair 🔚\n\n`;
 
-    menu += `5️⃣ ➜ Meu Plano / Upgrade 💳\n`;
-
-    if (hasRecurring) {
-      menu += `6️⃣ ➜ Transações Recorrentes 🔄\n`;
-    }
-
-    if (hasExport) {
-      menu += `7️⃣ ➜ Exportar Relatório (PDF/Excel) 📤\n`;
-    }
-
-    menu += `8️⃣ ➜ Editar Perfil 👤\n`;
-    menu += `0️⃣ ➜ Sair 🔚\n`;
-    menu += `\n_Digite o número da opção desejada_ ✍️`;
+    menu += `_Digite o número da opção_ ✍️`;
 
     return menu;
   }

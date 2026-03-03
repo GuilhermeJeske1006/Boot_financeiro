@@ -6,6 +6,7 @@ const PlanMenu = require('./menus/plan_menu');
 const RecurringTransactionMenu = require('./menus/recurring_transaction_menu');
 const ExportMenu = require('./menus/export_menu');
 const ProfileMenu = require('./menus/profile_menu');
+const BudgetMenu = require('./menus/budget_menu');
 const CompanyService = require('../services/company_service');
 const SubscriptionService = require('../services/subscription_service');
 
@@ -111,6 +112,8 @@ class SessionManager {
           return await this._handleExportFlow(phone, userId, input);
         case 'edit_profile':
           return await this._handleProfileFlow(phone, userId, input);
+        case 'budgets':
+          return await this._handleBudgetFlow(phone, userId, input);
         default:
           this._resetToMain(phone);
           return await MainMenu.show(userId);
@@ -155,35 +158,54 @@ class SessionManager {
         return await this._startTransactionFlow(phone, userId, 'income', context);
       case '2':
         return await this._startTransactionFlow(phone, userId, 'expense', context);
-      case '3':
-        return await this._handleMonthlyReport(phone, userId, context);
-      case '4':
-        this.sessions.set(phone, { flow: 'manage_companies', step: 1, data: {}, context });
-        return await CompanyMenu.showMenu(userId);
-      case '5': {
-        const { message, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
-        this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans, showCancel, cancelOptionNumber }, context });
-        return message;
-      }
-      case '6': {
+      case '3': {
         const hasFeature = await SubscriptionService.hasFeature(userId, 'recurring_transactions');
-        if (!hasFeature) return await MainMenu.show(userId);
+        if (!hasFeature) {
+          return (
+            `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
+            `Para usar Transações Recorrentes, faça upgrade do seu plano.\n\n` +
+            `Digite *8* para ver os planos disponíveis.`
+          );
+        }
         this.sessions.set(phone, { flow: 'recurring_transactions', step: 1, data: {}, context });
         return RecurringTransactionMenu.showMainMenu();
       }
-      case '7': {
+      case '4':
+        return await this._handleMonthlyReport(phone, userId, context);
+      case '5': {
         const hasExport = await SubscriptionService.hasFeature(userId, 'pdf_export');
         if (!hasExport) {
           return (
             `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
             `Para exportar relatórios em PDF ou Excel, faça upgrade do seu plano.\n\n` +
-            `Digite *5* para ver os planos disponíveis.`
+            `Digite *8* para ver os planos disponíveis.`
           );
         }
         this.sessions.set(phone, { flow: 'export', step: 1, data: {}, context });
         return ExportMenu.showMenu();
       }
+      case '6': {
+        const hasBudgets = await SubscriptionService.hasFeature(userId, 'category_budgets');
+        if (!hasBudgets) {
+          return (
+            `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
+            `Para usar Metas e Orçamentos por categoria, faça upgrade do seu plano.\n\n` +
+            `Digite *8* para ver os planos disponíveis.`
+          );
+        }
+        const { message, budgets } = await BudgetMenu.showMain(userId);
+        this.sessions.set(phone, { flow: 'budgets', step: 1, data: { budgets }, context });
+        return message;
+      }
+      case '7':
+        this.sessions.set(phone, { flow: 'manage_companies', step: 1, data: {}, context });
+        return await CompanyMenu.showMenu(userId);
       case '8': {
+        const { message, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
+        this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans, showCancel, cancelOptionNumber }, context });
+        return message;
+      }
+      case '9': {
         const { message } = await ProfileMenu.showProfile(userId);
         this.sessions.set(phone, { flow: 'edit_profile', step: 1, data: {}, context });
         return message;
@@ -373,6 +395,20 @@ class SessionManager {
   async _handleProfileFlow(phone, userId, input) {
     const state = this._getSession(phone);
     const result = await ProfileMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _handleBudgetFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await BudgetMenu.handleStep(state, input, userId);
 
     if (result.done) {
       this._resetToMain(phone);

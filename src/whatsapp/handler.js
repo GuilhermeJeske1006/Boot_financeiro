@@ -7,8 +7,16 @@ const { getClient, consumeWebhookMessage } = require('./client');
 var MY_ID = process.env.WHATSAPP_ID;
 
 async function handleMessage(message) {
+  // if (message.to !== MY_ID) return;
+  // if (!message.fromMe) return;
+  // if (message.hasQuotedMsg) return;
+  // if (message.from.includes('@g.us')) return;
+  // if (message.type !== 'chat') return;
+  // if (consumeWebhookMessage(message.to)) return;
+
+  if (message.from !== '554791907479@c.us' && message.from !== '554792801006@c.us') return;
   if (message.to !== MY_ID) return;
-  if (!message.fromMe) return;
+  // if (!message.fromMe) return;
   if (message.hasQuotedMsg) return;
   if (message.from.includes('@g.us')) return;
   if (message.type !== 'chat') return;

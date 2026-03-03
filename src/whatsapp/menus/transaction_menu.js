@@ -2,6 +2,7 @@ const CategoryService = require('../../services/category_service');
 const TransactionService = require('../../services/transaction_service');
 const CompanyService = require('../../services/company_service');
 const SubscriptionService = require('../../services/subscription_service');
+const CategoryBudgetService = require('../../services/category_budget_service');
 
 class TransactionMenu {
   // context: 'PF' | 'PJ' | null | undefined
@@ -307,7 +308,14 @@ class TransactionMenu {
 
       const typeLabel = state.data.type === 'income' ? 'Entrada' : 'Saída';
       const location = state.data.is_personal ? 'como Pessoa Física' : `da empresa ${state.data.company_name}`;
-      const successMsg = `🎉✅ ${typeLabel} ${location} registrada com sucesso!`;
+      let successMsg = `🎉✅ ${typeLabel} ${location} registrada com sucesso!`;
+
+      if (state.data.type === 'expense' && state.data.is_personal) {
+        const budgetAlert = await CategoryBudgetService.checkBudget(userId, state.data.category_id);
+        if (budgetAlert) {
+          successMsg += '\n\n' + budgetAlert;
+        }
+      }
 
       const canCreate = await SubscriptionService.canCreateTransaction(userId);
       if (!canCreate) {

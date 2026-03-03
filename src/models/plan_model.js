@@ -55,6 +55,11 @@ class Plan extends Model {
           allowNull: false,
           defaultValue: false,
         },
+        category_budgets: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
+        },
         is_active: {
           type: DataTypes.BOOLEAN,
           allowNull: false,

@@ -61,8 +61,8 @@ class TransactionRepository {
 
     return Transaction.findAll({
       attributes: [
-        'type',
-        [sequelize.fn('SUM', sequelize.col('amount')), 'total'],
+        [sequelize.col('Transaction.type'), 'type'],
+        [sequelize.fn('SUM', sequelize.col('Transaction.amount')), 'total'],
         [sequelize.col('category.name'), 'category_name'],
       ],
       include: [{
@@ -71,7 +71,7 @@ class TransactionRepository {
         attributes: [],
       }],
       where: whereClause,
-      group: ['type', 'category_id', 'category.name'],
+      group: ['Transaction.type', 'Transaction.category_id', 'category.name', 'category.id'],
       raw: true,
     });
   }

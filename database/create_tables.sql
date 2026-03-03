@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS plans (
     pdf_export                  BOOLEAN        NOT NULL DEFAULT FALSE,
     multi_user                  BOOLEAN        NOT NULL DEFAULT FALSE,
     recurring_transactions      BOOLEAN        NOT NULL DEFAULT FALSE,
+    category_budgets            BOOLEAN        NOT NULL DEFAULT FALSE,
     is_active                   BOOLEAN        NOT NULL DEFAULT TRUE,
     created_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
@@ -183,22 +184,43 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_recurring_due ON recurring_transactions (is_active, next_date);
 
+-- 11. category_budgets (depende de users e categories)
+CREATE TABLE IF NOT EXISTS category_budgets (
+    id          SERIAL         NOT NULL,
+    user_id     INTEGER        NOT NULL,
+    category_id INTEGER        NOT NULL,
+    amount      DECIMAL(10, 2) NOT NULL,
+    month       VARCHAR(7)     NOT NULL, -- format: YYYY-MM
+    created_at  TIMESTAMP      NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP      NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    UNIQUE (user_id, category_id, month),
+    CONSTRAINT fk_category_budgets_user     FOREIGN KEY (user_id)     REFERENCES users (id),
+    CONSTRAINT fk_category_budgets_category FOREIGN KEY (category_id) REFERENCES categories (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_category_budgets_user_month ON category_budgets (user_id, month);
+
+-- migration: adiciona coluna category_budgets ao plans (seguro para banco existente)
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS category_budgets BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ============================================================
 -- Seed: planos padrão
 -- ============================================================
 
-INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions)
+INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets)
 VALUES
-    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE),
-    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE),
-    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE)
+    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE),
+    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE),
+    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
 ON CONFLICT (name) DO UPDATE SET
     display_name           = EXCLUDED.display_name,
     price_brl              = EXCLUDED.price_brl,
     whatsapp_reports       = EXCLUDED.whatsapp_reports,
     pdf_export             = EXCLUDED.pdf_export,
     multi_user             = EXCLUDED.multi_user,
-    recurring_transactions = EXCLUDED.recurring_transactions;
+    recurring_transactions = EXCLUDED.recurring_transactions,
+    category_budgets       = EXCLUDED.category_budgets;
 
 -- Atribui plano free a todos os usuários que ainda não têm assinatura
 INSERT INTO subscriptions (user_id, plan_id, status, starts_at, expires_at, payment_provider)
