@@ -7,4 +7,8 @@ const router = express.Router();
 // Rota sem JWT — autenticação feita via webhookSecret na query string
 router.post('/abacatepay', WebhookController.abacatePay);
 
+// POST /api/webhooks/pluggy
+// Rota sem JWT — autenticação via header 'pluggy-secret'
+router.post('/pluggy', WebhookController.pluggy);
+
 module.exports = router;

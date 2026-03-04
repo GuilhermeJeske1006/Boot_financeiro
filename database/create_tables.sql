@@ -204,15 +204,63 @@ CREATE INDEX IF NOT EXISTS idx_category_budgets_user_month ON category_budgets (
 -- migration: adiciona coluna category_budgets ao plans (seguro para banco existente)
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS category_budgets BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- ─── Open Banking migrations ──────────────────────────────────────────────────
+
+-- migration: adiciona source e external_id em transactions
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source      VARCHAR(20)  NOT NULL DEFAULT 'manual';
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS external_id VARCHAR(255) NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_external_id
+  ON transactions (external_id) WHERE external_id IS NOT NULL;
+
+-- 12. bank_connections (depende de users)
+CREATE TABLE IF NOT EXISTS bank_connections (
+    id               SERIAL       NOT NULL,
+    user_id          INTEGER      NOT NULL,
+    pluggy_item_id   VARCHAR(255) NOT NULL,
+    institution_name VARCHAR(255) NULL,
+    institution_id   VARCHAR(50)  NULL,
+    status           VARCHAR(50)  NOT NULL DEFAULT 'pending',
+    last_sync_at     TIMESTAMP    NULL,
+    created_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_bank_connections_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_connections_user   ON bank_connections (user_id);
+CREATE INDEX IF NOT EXISTS idx_bank_connections_status ON bank_connections (status);
+
+-- 13. bank_accounts (depende de bank_connections e users)
+CREATE TABLE IF NOT EXISTS bank_accounts (
+    id                  SERIAL         NOT NULL,
+    bank_connection_id  INTEGER        NOT NULL,
+    user_id             INTEGER        NOT NULL,
+    pluggy_account_id   VARCHAR(255)   NOT NULL,
+    name                VARCHAR(255)   NULL,
+    type                VARCHAR(50)    NULL,
+    balance             DECIMAL(12, 2) NULL,
+    currency_code       VARCHAR(10)    NOT NULL DEFAULT 'BRL',
+    created_at          TIMESTAMP      NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP      NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    UNIQUE (pluggy_account_id),
+    CONSTRAINT fk_bank_accounts_connection FOREIGN KEY (bank_connection_id) REFERENCES bank_connections (id) ON DELETE CASCADE,
+    CONSTRAINT fk_bank_accounts_user       FOREIGN KEY (user_id)            REFERENCES users (id)            ON DELETE CASCADE
+);
+
+-- migration: adiciona open_banking ao plans
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS open_banking BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ============================================================
 -- Seed: planos padrão
 -- ============================================================
 
-INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets)
+INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets, open_banking)
 VALUES
-    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE),
-    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE),
-    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
+    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE,  TRUE),
+    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
 ON CONFLICT (name) DO UPDATE SET
     display_name           = EXCLUDED.display_name,
     price_brl              = EXCLUDED.price_brl,
@@ -220,7 +268,8 @@ ON CONFLICT (name) DO UPDATE SET
     pdf_export             = EXCLUDED.pdf_export,
     multi_user             = EXCLUDED.multi_user,
     recurring_transactions = EXCLUDED.recurring_transactions,
-    category_budgets       = EXCLUDED.category_budgets;
+    category_budgets       = EXCLUDED.category_budgets,
+    open_banking           = EXCLUDED.open_banking;
 
 -- Atribui plano free a todos os usuários que ainda não têm assinatura
 INSERT INTO subscriptions (user_id, plan_id, status, starts_at, expires_at, payment_provider)

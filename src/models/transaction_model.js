@@ -50,6 +50,15 @@ class Transaction extends Model {
           allowNull: false,
           defaultValue: DataTypes.NOW,
         },
+        source: {
+          type: DataTypes.STRING(20),
+          allowNull: false,
+          defaultValue: 'manual',
+        },
+        external_id: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
         created_at: {
           type: DataTypes.DATE,
           allowNull: false,

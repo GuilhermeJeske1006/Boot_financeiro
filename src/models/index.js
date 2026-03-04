@@ -12,6 +12,8 @@ const Subscription = require('./subscription_model');
 const RecurringTransaction = require('./recurring_transaction_model');
 const CategoryBudget = require('./category_budget_model');
 const UserCompanyMember = require('./user_company_member_model');
+const BankConnection = require('./bank_connection_model');
+const BankAccount = require('./bank_account_model');
 
 User.init(database.connection);
 Category.init(database.connection);
@@ -25,6 +27,8 @@ Subscription.init(database.connection);
 RecurringTransaction.init(database.connection);
 CategoryBudget.init(database.connection);
 UserCompanyMember.init(database.connection);
+BankConnection.init(database.connection);
+BankAccount.init(database.connection);
 
 // associations
 Category.hasMany(Transaction, { foreignKey: 'category_id', as: 'transactions' });
@@ -75,6 +79,15 @@ UserCompanyMember.belongsTo(Company, { foreignKey: 'company_id', as: 'company' }
 User.hasMany(UserCompanyMember, { foreignKey: 'user_id', as: 'companyMemberships' });
 UserCompanyMember.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+User.hasMany(BankConnection, { foreignKey: 'user_id', as: 'bankConnections' });
+BankConnection.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+BankConnection.hasMany(BankAccount, { foreignKey: 'bank_connection_id', as: 'accounts' });
+BankAccount.belongsTo(BankConnection, { foreignKey: 'bank_connection_id', as: 'connection' });
+
+User.hasMany(BankAccount, { foreignKey: 'user_id', as: 'bankAccounts' });
+BankAccount.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 module.exports = {
   User,
   Category,
@@ -88,4 +101,6 @@ module.exports = {
   RecurringTransaction,
   CategoryBudget,
   UserCompanyMember,
+  BankConnection,
+  BankAccount,
 };

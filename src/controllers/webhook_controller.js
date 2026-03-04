@@ -5,6 +5,8 @@ const SlackService = require('../services/slack_service');
 const { getClient, markWebhookMessage } = require('../whatsapp/client');
 const SessionManager = require('../whatsapp/session_manager');
 const MainMenu = require('../whatsapp/menus/main_menu');
+const BankConnectionRepository = require('../repositories/bank_connection_repository');
+const BankSyncService = require('../services/bank_sync_service');
 
 class WebhookController {
   async abacatePay(req, res) {
@@ -58,6 +60,67 @@ class WebhookController {
       return res.status(500).json({ error: 'Erro interno ao processar pagamento' });
     }
   }
+
+  async pluggy(req, res) {
+    const receivedSecret = req.headers['pluggy-secret'] || req.query.webhookSecret;
+    if (process.env.PLUGGY_WEBHOOK_SECRET && receivedSecret !== process.env.PLUGGY_WEBHOOK_SECRET) {
+      return res.status(401).json({ error: 'Webhook secret inválido' });
+    }
+
+    const { item } = req.body;
+
+    // Responde imediatamente — Pluggy exige resposta rápida
+    res.status(200).json({ received: true });
+
+    if (!item?.id) return;
+
+    try {
+      const conn = await BankConnectionRepository.findByPluggyItemId(item.id);
+      if (!conn) return;
+
+      const pluggyStatus = item.status;
+      let localStatus = conn.status;
+
+      if (pluggyStatus === 'UPDATED') {
+        localStatus = 'connected';
+      } else if (pluggyStatus === 'OUTDATED') {
+        localStatus = 'outdated';
+      } else if (['LOGIN_ERROR', 'WAITING_USER_INPUT'].includes(pluggyStatus)) {
+        localStatus = 'error';
+      }
+
+      await BankConnectionRepository.updateStatus(conn.id, localStatus);
+
+      if (pluggyStatus === 'UPDATED') {
+        BankSyncService.syncConnection(conn.id)
+          .then(({ imported }) => {
+            if (imported > 0) {
+              _notifyBankSyncWhatsApp(conn.user_id, conn.institution_name, imported).catch(() => {});
+            }
+          })
+          .catch((err) => console.error('[BankSync webhook]', err.message));
+      }
+    } catch (error) {
+      console.error('[Pluggy webhook] Erro:', error.message);
+    }
+  }
+}
+
+async function _notifyBankSyncWhatsApp(userId, institutionName, count) {
+  const wClient = getClient();
+  const user = await UserRepository.findById(userId);
+  if (!wClient || !user?.phone) return;
+
+  const msg = [
+    `🏦 *Open Banking — Sincronização concluída!*`,
+    ``,
+    `${count} nova(s) transação(ões) importada(s) do ${institutionName || 'seu banco'}.`,
+    ``,
+    `Digite *menu* para ver seu extrato atualizado.`,
+  ].join('\n');
+
+  markWebhookMessage(user.phone);
+  await wClient.sendMessage(user.phone, msg);
 }
 
 async function _sendConfirmationWhatsApp(userId, planName) {
