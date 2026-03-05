@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS plans (
     multi_user                  BOOLEAN        NOT NULL DEFAULT FALSE,
     recurring_transactions      BOOLEAN        NOT NULL DEFAULT FALSE,
     category_budgets            BOOLEAN        NOT NULL DEFAULT FALSE,
+    ai_chat                     BOOLEAN        NOT NULL DEFAULT FALSE,
     is_active                   BOOLEAN        NOT NULL DEFAULT TRUE,
     created_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
@@ -204,15 +205,49 @@ CREATE INDEX IF NOT EXISTS idx_category_budgets_user_month ON category_budgets (
 -- migration: adiciona coluna category_budgets ao plans (seguro para banco existente)
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS category_budgets BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- 12. goals (depende de users)
+DO $$ BEGIN CREATE TYPE goal_status_enum AS ENUM ('active', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS goals (
+    id             SERIAL           NOT NULL,
+    user_id        INTEGER          NOT NULL,
+    name           VARCHAR(255)     NOT NULL,
+    target_amount  DECIMAL(10, 2)   NOT NULL,
+    current_amount DECIMAL(10, 2)   NOT NULL DEFAULT 0.00,
+    deadline       DATE             NULL,
+    status         goal_status_enum NOT NULL DEFAULT 'active',
+    created_at     TIMESTAMP        NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMP        NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_goals_user FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_goals_user_status ON goals (user_id, status);
+
+-- 13. goal_contributions (depende de goals)
+CREATE TABLE IF NOT EXISTS goal_contributions (
+    id         SERIAL         NOT NULL,
+    goal_id    INTEGER        NOT NULL,
+    amount     DECIMAL(10, 2) NOT NULL,
+    note       VARCHAR(255)   NULL,
+    date       DATE           NOT NULL,
+    created_at TIMESTAMP      NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP      NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_goal_contributions_goal FOREIGN KEY (goal_id) REFERENCES goals (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_goal_contributions_goal ON goal_contributions (goal_id);
+
 -- ============================================================
 -- Seed: planos padrão
 -- ============================================================
 
-INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets)
+INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets, ai_chat)
 VALUES
-    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE),
-    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE),
-    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
+    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE,  TRUE),
+    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
 ON CONFLICT (name) DO UPDATE SET
     display_name           = EXCLUDED.display_name,
     price_brl              = EXCLUDED.price_brl,
@@ -220,7 +255,14 @@ ON CONFLICT (name) DO UPDATE SET
     pdf_export             = EXCLUDED.pdf_export,
     multi_user             = EXCLUDED.multi_user,
     recurring_transactions = EXCLUDED.recurring_transactions,
-    category_budgets       = EXCLUDED.category_budgets;
+    category_budgets       = EXCLUDED.category_budgets,
+    ai_chat                = EXCLUDED.ai_chat;
+
+-- ─── Migrations de colunas ───────────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context_length INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_chat BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE plans SET ai_chat = TRUE WHERE name IN ('pro', 'business');
 
 -- Atribui plano free a todos os usuários que ainda não têm assinatura
 INSERT INTO subscriptions (user_id, plan_id, status, starts_at, expires_at, payment_provider)

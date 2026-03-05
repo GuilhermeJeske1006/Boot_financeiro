@@ -8,8 +8,12 @@ const ExportMenu = require('./menus/export_menu');
 const ProfileMenu = require('./menus/profile_menu');
 const BudgetMenu = require('./menus/budget_menu');
 const EditTransactionMenu = require('./menus/edit_transaction_menu');
+const GoalMenu = require('./menus/goal_menu');
+const LLMMenu = require('./menus/llm_menu');
 const CompanyService = require('../services/company_service');
 const SubscriptionService = require('../services/subscription_service');
+const TransactionRepository = require('../repositories/transaction_repository');
+const AiInterpreter = require('./services/ai_interpreter');
 
 class SessionManager {
   constructor() {
@@ -46,6 +50,15 @@ class SessionManager {
     this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context });
   }
 
+  _buildModeQuestion() {
+    return (
+      `👋 Olá! Como você prefere interagir hoje?\n\n` +
+      `💬 *1* ➜ Chat — escreva em linguagem natural (via IA)\n` +
+      `🤖 *2* ➜ Bot — menus interativos\n\n` +
+      `_Digite 1 ou 2_ ✍️`
+    );
+  }
+
   _buildContextQuestion() {
     return (
       `🎯 Esta sessão é para:\n\n` +
@@ -55,6 +68,11 @@ class SessionManager {
     );
   }
 
+  isInChatMode(phone) {
+    const session = this.sessions.get(phone);
+    return session ? session.flow === 'chat' : false;
+  }
+
   async processInput(phone, userId, input) {
     // Opção "sair" para finalizar a sessão
     if (input.toLowerCase() === 'sair') {
@@ -62,7 +80,7 @@ class SessionManager {
       return `🔚 Sessão finalizada.\n\nObrigado por usar o *Bot Financeiro*! 👋\n\nPara iniciar novamente, envie qualquer mensagem.`;
     }
 
-    // Ao digitar "menu" ou "0" no fluxo principal, reinicia e pergunta PF/PJ novamente se tiver empresa
+    // Ao digitar "menu" ou "0" no fluxo principal, reinicia e pergunta o modo novamente
     if (input.toLowerCase() === 'menu' || input === '0') {
       const state = this._getSession(phone);
       // Se estiver no menu principal (flow: 'main'), sai do sistema
@@ -70,30 +88,25 @@ class SessionManager {
         this.sessions.delete(phone);
         return `🔚 Sessão finalizada.\n\nObrigado por usar o *Bot Financeiro*! 👋\n\nPara iniciar novamente, envie qualquer mensagem.`;
       }
-      // Caso contrário, volta para o menu principal
-      const companies = await CompanyService.findByUserId(userId);
-      if (companies.length > 0) {
-        this.sessions.set(phone, { flow: 'choose_context', step: 1, data: {} });
-        return this._buildContextQuestion();
-      }
-      this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context: null });
-      return await MainMenu.show(userId);
+      // Caso contrário, volta para a seleção de modo
+      this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
+      return this._buildModeQuestion();
     }
 
-    // Se não há sessão ativa, verifica se precisa selecionar PF/PJ
+    // Se não há sessão ativa, pergunta o modo de interação primeiro
     if (!this.sessions.has(phone)) {
-      const companies = await CompanyService.findByUserId(userId);
-      if (companies.length > 0) {
-        this.sessions.set(phone, { flow: 'choose_context', step: 1, data: {} });
-        return this._buildContextQuestion();
-      }
-      this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context: null });
+      this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
+      return this._buildModeQuestion();
     }
 
     const state = this._getSession(phone);
 
     try {
       switch (state.flow) {
+        case 'choose_mode':
+          return await this._handleChooseMode(phone, userId, input);
+        case 'chat':
+          return await this._handleChatFlow(phone, userId, input);
         case 'choose_context':
           return await this._handleChooseContext(phone, userId, input);
         case 'main':
@@ -117,6 +130,10 @@ class SessionManager {
           return await this._handleBudgetFlow(phone, userId, input);
         case 'edit_transaction':
           return await this._handleEditTransactionFlow(phone, userId, input);
+        case 'goals':
+          return await this._handleGoalFlow(phone, userId, input);
+        case 'llm_settings':
+          return await this._handleLLMFlow(phone, userId, input);
         default:
           this._resetToMain(phone);
           return await MainMenu.show(userId);
@@ -126,6 +143,60 @@ class SessionManager {
       this._resetToMain(phone);
       return `❌ Ocorreu um erro: ${error.message}\n\nDigite *menu* para voltar ao menu principal.`;
     }
+  }
+
+  async _handleChooseMode(phone, userId, input) {
+    if (input === '1') {
+      const hasAiChat = await SubscriptionService.hasFeature(userId, 'ai_chat');
+      if (!hasAiChat) {
+        return (
+          `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
+          `O modo Chat via IA não está disponível no plano gratuito.\n\n` +
+          `Digite *11* no menu do bot para ver os planos disponíveis.\n\n` +
+          `_Digite *2* para usar o bot com menus._`
+        );
+      }
+      // Modo chat: linguagem natural via IA
+      this.sessions.set(phone, { flow: 'chat', step: 1, data: {}, context: null });
+      return (
+        `💬 *Modo Chat ativado!*\n\n` +
+        `Escreva em linguagem natural. Exemplos:\n\n` +
+        `• _"Gastei 50 reais no mercado"_\n` +
+        `• _"Recebi 3000 de salário"_\n` +
+        `• _"Qual meu saldo?"_\n\n` +
+        `_Digite *menu* para voltar ao modo bot ou *sair* para encerrar._`
+      );
+    } else if (input === '2') {
+      // Modo bot: menus interativos (fluxo atual)
+      const companies = await CompanyService.findByUserId(userId);
+      if (companies.length > 0) {
+        this.sessions.set(phone, { flow: 'choose_context', step: 1, data: {} });
+        return this._buildContextQuestion();
+      }
+      this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context: null });
+      return await MainMenu.show(userId);
+    } else {
+      return '⚠️ Por favor, digite *1* para Chat ou *2* para Bot.';
+    }
+  }
+
+  async _handleChatFlow(phone, userId, input) {
+    // "trocar" volta à seleção de modo sem precisar digitar "menu"
+    if (input.toLowerCase() === 'trocar') {
+      this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
+      return this._buildModeQuestion();
+    }
+
+    const response = await AiInterpreter.interpret(userId, input);
+    if (response) return response;
+
+    return (
+      `🤖 Não entendi sua mensagem. Tente algo como:\n\n` +
+      `• _"Gastei 80 reais em combustível"_\n` +
+      `• _"Recebi 1500 de freelance"_\n` +
+      `• _"Qual meu saldo?"_\n\n` +
+      `_Digite *menu* para usar o bot com menus ou *sair* para encerrar._`
+    );
   }
 
   async _handleChooseContext(phone, userId, input) {
@@ -169,56 +240,68 @@ class SessionManager {
         this.sessions.set(phone, { flow: 'edit_transaction', step: 1, data: { transactions }, context });
         return message;
       }
-      case '4': {
+      case '4':
+        return await this._showRecentTransactions(userId);
+      case '5': {
         const hasFeature = await SubscriptionService.hasFeature(userId, 'recurring_transactions');
         if (!hasFeature) {
           return (
             `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
             `Para usar Transações Recorrentes, faça upgrade do seu plano.\n\n` +
-            `Digite *9* para ver os planos disponíveis.`
+            `Digite *11* para ver os planos disponíveis.`
           );
         }
         this.sessions.set(phone, { flow: 'recurring_transactions', step: 1, data: {}, context });
         return RecurringTransactionMenu.showMainMenu();
       }
-      case '5':
-        return await this._handleMonthlyReport(phone, userId, context);
       case '6': {
-        const hasExport = await SubscriptionService.hasFeature(userId, 'pdf_export');
-        if (!hasExport) {
-          return (
-            `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
-            `Para exportar relatórios em PDF ou Excel, faça upgrade do seu plano.\n\n` +
-            `Digite *9* para ver os planos disponíveis.`
-          );
-        }
-        this.sessions.set(phone, { flow: 'export', step: 1, data: {}, context });
-        return ExportMenu.showMenu();
-      }
-      case '7': {
         const hasBudgets = await SubscriptionService.hasFeature(userId, 'category_budgets');
         if (!hasBudgets) {
           return (
             `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
-            `Para usar Metas e Orçamentos por categoria, faça upgrade do seu plano.\n\n` +
-            `Digite *9* para ver os planos disponíveis.`
+            `Para usar Orçamentos por Categoria, faça upgrade do seu plano.\n\n` +
+            `Digite *11* para ver os planos disponíveis.`
           );
         }
         const { message, budgets } = await BudgetMenu.showMain(userId);
         this.sessions.set(phone, { flow: 'budgets', step: 1, data: { budgets }, context });
         return message;
       }
+      case '7': {
+        const { message, goals } = await GoalMenu.showMain(userId);
+        this.sessions.set(phone, { flow: 'goals', step: 1, data: { goals }, context });
+        return message;
+      }
       case '8':
+        return await this._handleMonthlyReport(phone, userId, context);
+      case '9': {
+        const hasExport = await SubscriptionService.hasFeature(userId, 'pdf_export');
+        if (!hasExport) {
+          return (
+            `🔒 *Funcionalidade exclusiva dos planos Pro e Business*\n\n` +
+            `Para exportar relatórios em PDF ou Excel, faça upgrade do seu plano.\n\n` +
+            `Digite *11* para ver os planos disponíveis.`
+          );
+        }
+        this.sessions.set(phone, { flow: 'export', step: 1, data: {}, context });
+        return ExportMenu.showMenu();
+      }
+      case '10':
         this.sessions.set(phone, { flow: 'manage_companies', step: 1, data: {}, context });
         return await CompanyMenu.showMenu(userId);
-      case '9': {
+      case '11': {
         const { message, upgradePlans, showCancel, cancelOptionNumber } = await PlanMenu.show(userId);
         this.sessions.set(phone, { flow: 'plans', step: 1, data: { upgradePlans, showCancel, cancelOptionNumber }, context });
         return message;
       }
-      case '10': {
+      case '12': {
         const { message } = await ProfileMenu.showProfile(userId);
         this.sessions.set(phone, { flow: 'edit_profile', step: 1, data: {}, context });
+        return message;
+      }
+      case '13': {
+        const { message } = await LLMMenu.showMain(userId);
+        this.sessions.set(phone, { flow: 'llm_settings', step: 1, data: {}, context });
         return message;
       }
       case '0':
@@ -443,6 +526,56 @@ class SessionManager {
 
     this.sessions.set(phone, { ...result.newState, context: state.context });
     return result.message;
+  }
+
+  async _handleGoalFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await GoalMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _handleLLMFlow(phone, userId, input) {
+    const state = this._getSession(phone);
+    const result = await LLMMenu.handleStep(state, input, userId);
+
+    if (result.done) {
+      this._resetToMain(phone);
+      const mainMenu = await MainMenu.show(userId);
+      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
+    }
+
+    this.sessions.set(phone, { ...result.newState, context: state.context });
+    return result.message;
+  }
+
+  async _showRecentTransactions(userId) {
+    const transactions = await TransactionRepository.findRecentForUser(userId, 10);
+
+    if (transactions.length === 0) {
+      return `🕐 *Últimas Transações*\n\n😶 Nenhuma transação encontrada.\n\n_Registre uma transação pelo menu ou use /e ou /r._`;
+    }
+
+    let msg = `🕐 *Últimas 10 Transações*\n\n`;
+    for (const tx of transactions) {
+      const emoji = tx.type === 'income' ? '📈' : '📉';
+      const date = new Date(tx.date + 'T12:00:00').toLocaleDateString('pt-BR');
+      const categoryName = tx.category?.name || '—';
+      const companyName = tx.company ? ` [${tx.company.name}]` : '';
+      const desc = tx.description ? ` — ${tx.description}` : '';
+      msg += `${emoji} *R$ ${parseFloat(tx.amount).toFixed(2)}* | ${categoryName}${companyName}${desc}\n`;
+      msg += `  📅 ${date}\n`;
+    }
+
+    msg += `\n_Use /e, /r ou o menu para novos lançamentos._`;
+    return msg;
   }
 
   async _handleCompanyFlow(phone, userId, input) {

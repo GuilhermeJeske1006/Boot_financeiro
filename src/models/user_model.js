@@ -38,6 +38,16 @@ class User extends Model {
           type: DataTypes.STRING,
           allowNull: true,
         },
+        ai_enabled: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: true,
+        },
+        ai_context_length: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        },
         created_at: {
           type: DataTypes.DATE,
           allowNull: false,

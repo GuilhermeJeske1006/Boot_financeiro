@@ -2,6 +2,8 @@ const { MessageMedia } = require('whatsapp-web.js');
 const SessionManager = require('./session_manager');
 const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
+const ShortcutHandler = require('./services/shortcut_handler');
+const AiInterpreter = require('./services/ai_interpreter');
 const { getClient, consumeWebhookMessage } = require('./client');
 const RateLimiter = require('./rate_limiter');
 
@@ -45,6 +47,21 @@ async function handleMessage(message) {
     }
 
     return;
+  }
+
+  const shortcutResponse = await ShortcutHandler.handle(user.id, userInput);
+  if (shortcutResponse) {
+    await message.reply(shortcutResponse);
+    return;
+  }
+
+  // Em modo chat, o SessionManager já roteia para AiInterpreter.interpret()
+  if (!SessionManager.isInChatMode(phone)) {
+    const aiResponse = await AiInterpreter.handle(user.id, userInput);
+    if (aiResponse) {
+      await message.reply(aiResponse);
+      return;
+    }
   }
 
   const response = await SessionManager.processInput(phone, user.id, userInput);

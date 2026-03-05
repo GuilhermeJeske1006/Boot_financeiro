@@ -6,6 +6,7 @@ const { startMonthlyCron } = require('./cron/monthly_report');
 const { startSubscriptionRenewalCron } = require('./cron/subscription_renewal');
 const { startRecurringTransactionsCron } = require('./cron/recurring_transactions');
 const { startEmailQueueCron } = require('./cron/email_queue');
+const { startWeeklyInsightsCron } = require('./cron/weekly_insights');
 
 // Captura erros não tratados e notifica o Slack antes de encerrar
 process.on('uncaughtException', (err) => {
@@ -44,6 +45,9 @@ process.on('unhandledRejection', (reason) => {
 
     // inicia o cron job de fila de emails
     startEmailQueueCron();
+
+    // inicia o cron job de insights semanais
+    startWeeklyInsightsCron();
   } catch (err) {
     console.error('[FATAL] Falha na inicialização do servidor:', err);
     process.exit(1);

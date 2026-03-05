@@ -1,4 +1,4 @@
-const { RecurringTransaction, Category } = require('../models');
+const { RecurringTransaction, Category, User, Company } = require('../models');
 const { Op } = require('sequelize');
 
 class RecurringTransactionRepository {
@@ -48,6 +48,14 @@ class RecurringTransactionRepository {
         is_active: true,
         next_date: { [Op.lte]: today },
       },
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name'] },
+        { model: User, as: 'user', attributes: ['id', 'phone'] },
+        {
+          model: Company, as: 'company', attributes: ['id', 'name', 'user_id'],
+          include: [{ model: User, as: 'user', attributes: ['id', 'phone'] }],
+        },
+      ],
     });
   }
 }

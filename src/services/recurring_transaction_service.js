@@ -106,7 +106,10 @@ class RecurringTransactionService {
   // Chamado pelo cron: cria transações para todos os registros vencidos e avança next_date
   async processDue() {
     const dueList = await RecurringTransactionRepository.findDueToday();
-    const results = { created: 0, errors: 0 };
+    const results = { created: 0, errors: 0, notifications: [] };
+
+    const FREQ_LABELS = { daily: 'diária', weekly: 'semanal', monthly: 'mensal', yearly: 'anual' };
+    const TYPE_LABELS = { income: '📈 Entrada', expense: '📉 Saída' };
 
     for (const rt of dueList) {
       try {
@@ -123,6 +126,27 @@ class RecurringTransactionService {
         const newNextDate = computeNextDate(rt.next_date, rt.frequency);
         await RecurringTransactionRepository.update(rt.id, { next_date: newNextDate });
         results.created++;
+
+        // Prepara notificação WhatsApp
+        const phone = rt.user?.phone || rt.company?.user?.phone;
+        if (phone) {
+          const typeLabel = TYPE_LABELS[rt.type] || rt.type;
+          const categoryName = rt.category?.name || '—';
+          const freqLabel = FREQ_LABELS[rt.frequency] || rt.frequency;
+          const companyInfo = rt.company ? ` [${rt.company.name}]` : '';
+          const desc = rt.description ? ` — ${rt.description}` : '';
+          const msg = [
+            `🔄 *Transação recorrente criada automaticamente*`,
+            ``,
+            `${typeLabel}: *R$ ${parseFloat(rt.amount).toFixed(2)}*`,
+            `🏷️ Categoria: ${categoryName}${companyInfo}${desc}`,
+            `🔁 Frequência: ${freqLabel}`,
+            `📅 Data: ${new Date(rt.next_date + 'T12:00:00').toLocaleDateString('pt-BR')}`,
+            ``,
+            `_Próxima: ${new Date(newNextDate + 'T12:00:00').toLocaleDateString('pt-BR')}_`,
+          ].join('\n');
+          results.notifications.push({ phone, message: msg });
+        }
       } catch (err) {
         console.error(`Erro ao processar transação recorrente id=${rt.id}:`, err.message);
         results.errors++;
