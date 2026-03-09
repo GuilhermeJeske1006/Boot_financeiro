@@ -14,11 +14,12 @@ async function handleMessage(message) {
   if (!message.fromMe) return;
   if (message.hasQuotedMsg) return;
   if (message.from.includes('@g.us')) return;
-  if (message.type !== 'chat') return;
+  const isAudio = message.type === 'ptt' || message.type === 'audio';
+  if (message.type !== 'chat' && !isAudio) return;
   if (consumeWebhookMessage(message.to)) return;
 
   // if (message.from !== '554791907479@c.us' && message.from !== '554792801006@c.us' && message.from !== '554499891487@c.us') return;
-  
+
   const phone = message.from;
 
   const { blocked, shouldWarn } = RateLimiter.check(phone);
@@ -31,37 +32,33 @@ async function handleMessage(message) {
     return;
   }
 
-  const userInput = message.body.trim();
-
   let user = await UserRepository.findByPhone(phone);
 
   if (!user || RegistrationService.isRegistering(phone)) {
+    if (isAudio) return; // ignora áudio durante o cadastro
+    const userInput = message.body.trim();
     const result = await RegistrationService.handle(phone, userInput);
-
-    if (result.reply) {
-      await message.reply(result.reply);
-    }
-
-    if (result.done) {
-      SessionManager.initSession(phone, result.context);
-    }
-
+    if (result.reply) await message.reply(result.reply);
+    if (result.done) SessionManager.initSession(phone, result.context);
     return;
   }
+
+  // Áudio: só processa no modo chat
+  if (isAudio) {
+    if (!SessionManager.isInChatMode(phone)) return;
+    const media = await message.downloadMedia();
+    if (!media) return;
+    const response = await AiInterpreter.interpretAudio(user.id, media.data, media.mimetype);
+    if (response) await message.reply(response);
+    return;
+  }
+
+  const userInput = message.body.trim();
 
   const shortcutResponse = await ShortcutHandler.handle(user.id, userInput);
   if (shortcutResponse) {
     await message.reply(shortcutResponse);
     return;
-  }
-
-  // Em modo chat, o SessionManager já roteia para AiInterpreter.interpret()
-  if (!SessionManager.isInChatMode(phone)) {
-    const aiResponse = await AiInterpreter.handle(user.id, userInput);
-    if (aiResponse) {
-      await message.reply(aiResponse);
-      return;
-    }
   }
 
   const response = await SessionManager.processInput(phone, user.id, userInput);

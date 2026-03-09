@@ -160,7 +160,7 @@ class SessionManager {
       this.sessions.set(phone, { flow: 'chat', step: 1, data: {}, context: null });
       return (
         `💬 *Modo Chat ativado!*\n\n` +
-        `Escreva em linguagem natural. Exemplos:\n\n` +
+        `Escreva ou envie um 🎤 *áudio* em linguagem natural. Exemplos:\n\n` +
         `• _"Gastei 50 reais no mercado"_\n` +
         `• _"Recebi 3000 de salário"_\n` +
         `• _"Qual meu saldo?"_\n\n` +

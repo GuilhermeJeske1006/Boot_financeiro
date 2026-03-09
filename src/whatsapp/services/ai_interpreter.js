@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const Groq = require('groq-sdk');
 const TransactionService = require('../../services/transaction_service');
 const CategoryRepository = require('../../repositories/category_repository');
 const ReportService = require('../../services/report_service');
@@ -6,8 +7,9 @@ const SubscriptionService = require('../../services/subscription_service');
 const UserRepository = require('../../repositories/user_respository');
 
 const client = new Anthropic();
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const SYSTEM_PROMPT = `Você é um assistente financeiro. Analise a mensagem do usuário e extraia informações de uma transação financeira ou solicitação de saldo.
+const BASE_SYSTEM_PROMPT = `Você é um assistente financeiro. Analise a mensagem do usuário e extraia informações de uma transação financeira ou solicitação de saldo.
 
 Responda APENAS com um JSON válido, sem texto adicional, no formato:
 {
@@ -26,7 +28,20 @@ Regras:
 - Para datas relativas como "hoje", "ontem", use a data atual fornecida no contexto
 - Se a data não for mencionada, use null (assumirá hoje)
 - Normalize valores: "50 reais" → 50, "1.500" → 1500, "R$ 89,90" → 89.90
-- Se não houver valor claro para intent expense/income, use intent "unknown"`;
+- Se não houver valor claro para intent expense/income, use intent "unknown"
+- O campo "category" DEVE ser exatamente um dos nomes da lista de categorias fornecida abaixo. Escolha a mais adequada ao contexto.`;
+
+function buildSystemPrompt(expenseCategories, incomeCategories) {
+  const expenseList = expenseCategories.map(c => `  - ${c.name}`).join('\n') || '  (nenhuma)';
+  const incomeList = incomeCategories.map(c => `  - ${c.name}`).join('\n') || '  (nenhuma)';
+  return `${BASE_SYSTEM_PROMPT}
+
+Categorias disponíveis para despesas (use quando intent="expense"):
+${expenseList}
+
+Categorias disponíveis para receitas (use quando intent="income"):
+${incomeList}`;
+}
 
 class AiInterpreter {
   constructor() {
@@ -77,6 +92,58 @@ class AiInterpreter {
     }
   }
 
+  // Transcreve áudio e interpreta como financeiro (usado no modo chat)
+  async interpretAudio(userId, audioBase64, mimeType) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return `⚠️ *IA não configurada.* Variável ANTHROPIC_API_KEY ausente.`;
+    }
+
+    const user = await UserRepository.findById(userId);
+    if (!user) return null;
+
+    try {
+      const transcription = await this._transcribeAudio(audioBase64, mimeType);
+      if (!transcription) {
+        return `⚠️ Não consegui transcrever o áudio. Tente enviar como texto.`;
+      }
+
+      console.log(`[AiInterpreter] userId=${userId} audio transcription="${transcription}"`);
+
+      const result = await this._process(userId, transcription, user);
+      if (result) return result;
+
+      return (
+        `🎤 _"${transcription}"_\n\n` +
+        `🤖 Não entendi como uma transação financeira. Tente algo como:\n\n` +
+        `• _"Gastei 80 reais em combustível"_\n` +
+        `• _"Recebi 1500 de freelance"_\n` +
+        `• _"Qual meu saldo?"_\n\n` +
+        `_Digite *menu* para usar o bot com menus ou *sair* para encerrar._`
+      );
+    } catch (err) {
+      console.error(`[AiInterpreter] interpretAudio userId=${userId} → ${err.message}`);
+      return `⚠️ Erro ao processar áudio. Tente enviar a mensagem como texto.`;
+    }
+  }
+
+  async _transcribeAudio(audioBase64, mimeType) {
+    const extMap = {
+      'audio/ogg': 'ogg', 'audio/mp4': 'mp4', 'audio/wav': 'wav',
+      'audio/mp3': 'mp3', 'audio/mpeg': 'mp3', 'audio/webm': 'webm', 'audio/flac': 'flac',
+    };
+    const ext = Object.entries(extMap).find(([k]) => mimeType.startsWith(k))?.[1] || 'ogg';
+    const buffer = Buffer.from(audioBase64, 'base64');
+    const file = new File([buffer], `audio.${ext}`, { type: mimeType });
+
+    const response = await groq.audio.transcriptions.create({
+      file,
+      model: 'whisper-large-v3-turbo',
+      language: 'pt',
+    });
+
+    return response.text?.trim() || null;
+  }
+
   async _process(userId, input, user) {
     // Só interpreta mensagens que parecem texto livre (não números, não comandos /x)
     if (/^\d+$/.test(input.trim())) return null;
@@ -89,6 +156,12 @@ class AiInterpreter {
       ? (this.contextHistory.get(userId) || []).slice(-contextLength)
       : [];
 
+    const [expenseCategories, incomeCategories] = await Promise.all([
+      CategoryRepository.findByType('expense', userId),
+      CategoryRepository.findByType('income', userId),
+    ]);
+    const systemPrompt = buildSystemPrompt(expenseCategories, incomeCategories);
+
     let parsed;
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -98,7 +171,7 @@ class AiInterpreter {
       const response = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 200,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages,
       });
 

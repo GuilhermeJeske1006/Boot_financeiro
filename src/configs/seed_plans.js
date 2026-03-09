@@ -11,6 +11,8 @@ const defaultPlans = [
     pdf_export: false,
     multi_user: false,
     recurring_transactions: false,
+    category_budgets: false,
+    ai_chat: false,
   },
   {
     name: 'pro',
@@ -22,6 +24,8 @@ const defaultPlans = [
     pdf_export: true,
     multi_user: false,
     recurring_transactions: true,
+    category_budgets: true,
+    ai_chat: true,
   },
   {
     name: 'business',
@@ -33,6 +37,8 @@ const defaultPlans = [
     pdf_export: true,
     multi_user: true,
     recurring_transactions: true,
+    category_budgets: true,
+    ai_chat: true,
   },
 ];
 
