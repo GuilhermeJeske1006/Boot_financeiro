@@ -1,10 +1,11 @@
 const express = require('express');
 const TransactionController = require('../controllers/transation_controller');
 const AuthMiddleware = require('../middlewares/auth_middleware');
+const CheckPlan = require('../middlewares/check_plan');
 
 const router = express.Router();
 
-router.post('/', AuthMiddleware.verifyToken, TransactionController.create);
+router.post('/', AuthMiddleware.verifyToken, CheckPlan.transactionLimit, TransactionController.create);
 router.get('/', AuthMiddleware.verifyToken, TransactionController.findByMonth);
 router.get('/summary', AuthMiddleware.verifyToken, TransactionController.getMonthlySummary);
 router.get('/companies-summary', AuthMiddleware.verifyToken, TransactionController.getCompaniesSummary);

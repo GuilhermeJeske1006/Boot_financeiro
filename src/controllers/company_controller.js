@@ -1,8 +1,22 @@
 const CompanyService = require('../services/company_service');
+const SubscriptionRepository = require('../repositories/subscription_repository');
 
 class CompanyController {
   async create(req, res) {
     try {
+      const subscription = await SubscriptionRepository.findActiveByUserId(req.userId);
+      const maxCompanies = subscription?.plan?.max_companies ?? 1;
+
+      if (maxCompanies !== -1) {
+        const existing = await CompanyService.list(req.userId);
+        if (existing.length >= maxCompanies) {
+          return res.status(403).json({
+            error: `Seu plano permite no máximo ${maxCompanies} empresa(s). Faça upgrade para adicionar mais.`,
+            upgrade_url: '/api/subscriptions/plans',
+          });
+        }
+      }
+
       const company = await CompanyService.create({
         ...req.body,
         user_id: req.userId,

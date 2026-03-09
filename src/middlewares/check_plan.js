@@ -14,7 +14,7 @@ async function sendUpgradeWhatsApp(user, plans, links) {
   const lines = [
     '🚫 *Limite do plano gratuito atingido!*',
     '',
-    `Olá ${user.name}, você utilizou todas as ${plans.free?.max_transactions_per_month || 50} transações gratuitas deste mês.`,
+    `Olá ${user.name}, você utilizou todas as ${plans.free?.max_transactions_per_month || 30} transações gratuitas deste mês.`,
     '',
     'Para continuar lançando transações, escolha um plano:',
     '',

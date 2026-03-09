@@ -5,7 +5,7 @@ const defaultPlans = [
     name: 'free',
     display_name: 'Grátis',
     price_brl: 0.00,
-    max_transactions_per_month: 50,
+    max_transactions_per_month: 30,
     max_companies: 1,
     whatsapp_reports: false,
     pdf_export: false,
@@ -17,7 +17,7 @@ const defaultPlans = [
   {
     name: 'pro',
     display_name: 'Pro',
-    price_brl: 29.90,
+    price_brl: 19.90,
     max_transactions_per_month: -1, // ilimitado
     max_companies: 5,
     whatsapp_reports: true,
@@ -30,7 +30,7 @@ const defaultPlans = [
   {
     name: 'business',
     display_name: 'Business',
-    price_brl: 79.90,
+    price_brl: 49.90,
     max_transactions_per_month: -1, // ilimitado
     max_companies: -1, // ilimitado
     whatsapp_reports: true,
