@@ -24,11 +24,14 @@ class SessionManager {
     //   null = usuário não tem empresa cadastrada
     //   undefined = contexto ainda não definido (vai perguntar PF/PJ)
     this.sessions = new Map();
+    setInterval(() => this._cleanupStaleSessions(), 30 * 60 * 1000);
   }
 
   _getSession(phone) {
     if (!this.sessions.has(phone)) {
-      this.sessions.set(phone, { flow: 'main', step: 0, data: {} });
+      this.sessions.set(phone, { flow: 'main', step: 0, data: {}, lastActivity: Date.now() });
+    } else {
+      this.sessions.get(phone).lastActivity = Date.now();
     }
     return this.sessions.get(phone);
   }
@@ -37,7 +40,7 @@ class SessionManager {
   _resetToMain(phone) {
     const existing = this.sessions.get(phone);
     const context = existing ? existing.context : undefined;
-    this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context });
+    this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context, lastActivity: Date.now() });
   }
 
   // Chamado pelo webhook após confirmação de pagamento
@@ -47,7 +50,17 @@ class SessionManager {
 
   // Chamado pelo handler.js após o cadastro para inicializar o contexto
   initSession(phone, context) {
-    this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context });
+    this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context, lastActivity: Date.now() });
+  }
+
+  _cleanupStaleSessions() {
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000; // 2 horas
+    for (const [phone, session] of this.sessions) {
+      if ((session.lastActivity || 0) < cutoff) {
+        this.sessions.delete(phone);
+        AiInterpreter.clearContext(phone);
+      }
+    }
   }
 
   _buildModeQuestion() {
@@ -65,6 +78,17 @@ class SessionManager {
       `👤 *1* ➜ Pessoa Física\n` +
       `🏢 *2* ➜ Empresa\n\n` +
       `_Digite 1 ou 2_ ✍️`
+    );
+  }
+
+  _buildChatWelcome() {
+    return (
+      `💬 *Modo Chat ativado!*\n\n` +
+      `Escreva ou envie um 🎤 *áudio* em linguagem natural. Exemplos:\n\n` +
+      `• _"Gastei 50 reais no mercado"_\n` +
+      `• _"Recebi 3000 de salário"_\n` +
+      `• _"Qual meu saldo?"_\n\n` +
+      `_Digite *menu* para voltar ao modo bot ou *sair* para encerrar._`
     );
   }
 
@@ -109,6 +133,8 @@ class SessionManager {
           return await this._handleChatFlow(phone, userId, input);
         case 'choose_context':
           return await this._handleChooseContext(phone, userId, input);
+        case 'choose_context_chat':
+          return await this._handleChooseContextChat(phone, userId, input);
         case 'main':
           return await this._handleMainMenu(phone, userId, input);
         case 'add_income':
@@ -156,16 +182,15 @@ class SessionManager {
           `_Digite *2* para usar o bot com menus._`
         );
       }
-      // Modo chat: linguagem natural via IA
+      // Modo chat: se usuário tem empresas, pergunta o contexto primeiro
+      const companiesForChat = await CompanyService.findByUserId(userId);
+      if (companiesForChat.length > 0) {
+        this.sessions.set(phone, { flow: 'choose_context_chat', step: 1, data: {} });
+        return this._buildContextQuestion();
+      }
+      // Sem empresas: entra direto no chat
       this.sessions.set(phone, { flow: 'chat', step: 1, data: {}, context: null });
-      return (
-        `💬 *Modo Chat ativado!*\n\n` +
-        `Escreva ou envie um 🎤 *áudio* em linguagem natural. Exemplos:\n\n` +
-        `• _"Gastei 50 reais no mercado"_\n` +
-        `• _"Recebi 3000 de salário"_\n` +
-        `• _"Qual meu saldo?"_\n\n` +
-        `_Digite *menu* para voltar ao modo bot ou *sair* para encerrar._`
-      );
+      return this._buildChatWelcome();
     } else if (input === '2') {
       // Modo bot: menus interativos (fluxo atual)
       const companies = await CompanyService.findByUserId(userId);
@@ -187,16 +212,72 @@ class SessionManager {
       return this._buildModeQuestion();
     }
 
-    const response = await AiInterpreter.interpret(userId, input);
-    if (response) return response;
+    const state = this._getSession(phone);
 
-    return (
+    // Aguardando seleção de empresa para transação pendente
+    if (state.data.awaitingCompanySelection) {
+      return await this._handleChatCompanySelection(phone, userId, input, state);
+    }
+
+    const notUnderstood = (
       `🤖 Não entendi sua mensagem. Tente algo como:\n\n` +
       `• _"Gastei 80 reais em combustível"_\n` +
       `• _"Recebi 1500 de freelance"_\n` +
       `• _"Qual meu saldo?"_\n\n` +
       `_Digite *menu* para usar o bot com menus ou *sair* para encerrar._`
     );
+
+    if (state.context === 'PJ') {
+      const companies = await CompanyService.findByUserId(userId);
+
+      if (companies.length === 1) {
+        // Única empresa: atribui automaticamente
+        const response = await AiInterpreter.interpret(userId, input, companies[0].id);
+        return response || notUnderstood;
+      }
+
+      if (companies.length > 1) {
+        // Várias empresas: parseia a intenção e pergunta para qual empresa
+        const parsed = await AiInterpreter.parseIntent(userId, input);
+        if (parsed && (parsed.intent === 'expense' || parsed.intent === 'income') && parsed.amount) {
+          let msg = `🏢 *Para qual empresa é esta transação?*\n\n`;
+          companies.forEach((c, i) => { msg += `*${i + 1}* ➜ ${c.name}\n`; });
+          msg += `\n_Digite o número da empresa_ ✍️`;
+          this.sessions.set(phone, {
+            ...state,
+            data: { awaitingCompanySelection: true, pendingParsed: parsed, companies },
+          });
+          return msg;
+        }
+        // Saldo ou intenção desconhecida: processa normalmente sem empresa
+        const response = await AiInterpreter.interpret(userId, input);
+        return response || notUnderstood;
+      }
+    }
+
+    const response = await AiInterpreter.interpret(userId, input);
+    return response || notUnderstood;
+  }
+
+  async _handleChatCompanySelection(phone, userId, input, state) {
+    const { pendingParsed, companies } = state.data;
+    const index = parseInt(input) - 1;
+
+    if (isNaN(index) || index < 0 || index >= companies.length) {
+      let msg = `⚠️ Opção inválida.\n\n🏢 *Para qual empresa é esta transação?*\n\n`;
+      companies.forEach((c, i) => { msg += `*${i + 1}* ➜ ${c.name}\n`; });
+      msg += `\n_Digite o número da empresa_ ✍️`;
+      return msg;
+    }
+
+    const selectedCompany = companies[index];
+    this.sessions.set(phone, { ...state, data: {} });
+
+    const response = await AiInterpreter.executeTransaction(userId, pendingParsed, selectedCompany.id);
+    if (!response) {
+      return `❌ Não foi possível registrar a transação. Tente novamente.`;
+    }
+    return response + `\n\n🏢 Empresa: *${selectedCompany.name}*`;
   }
 
   async _handleChooseContext(phone, userId, input) {
@@ -206,6 +287,18 @@ class SessionManager {
     } else if (input === '2') {
       this.sessions.set(phone, { flow: 'main', step: 0, data: {}, context: 'PJ' });
       return await MainMenu.show(userId);
+    } else {
+      return '⚠️ Por favor, digite *1* para Pessoa Física ou *2* para Empresa.';
+    }
+  }
+
+  async _handleChooseContextChat(phone, userId, input) {
+    if (input === '1') {
+      this.sessions.set(phone, { flow: 'chat', step: 1, data: {}, context: 'PF' });
+      return this._buildChatWelcome();
+    } else if (input === '2') {
+      this.sessions.set(phone, { flow: 'chat', step: 1, data: {}, context: 'PJ' });
+      return this._buildChatWelcome();
     } else {
       return '⚠️ Por favor, digite *1* para Pessoa Física ou *2* para Empresa.';
     }

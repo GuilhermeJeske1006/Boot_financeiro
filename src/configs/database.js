@@ -12,6 +12,12 @@ class Database {
         port: process.env.DB_PORT,
         dialect: process.env.DB_DIALECT || 'postgres',
         logging: false,
+        pool: {
+          max: 5,
+          min: 0,
+          acquire: 30000,
+          idle: 10000,
+        },
         define: {
           timestamps: true,
           underscored: true

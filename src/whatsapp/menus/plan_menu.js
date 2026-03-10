@@ -155,6 +155,14 @@ class PlanMenu {
       };
     }
 
+    const existing = await UserRepository.findByEmail(email);
+    if (existing && existing.id !== userId) {
+      return {
+        newState: state,
+        message: `⚠️ Este e-mail já está sendo usado por outra conta.\n\nDigite um e-mail diferente:`,
+      };
+    }
+
     await UserRepository.update(userId, { email });
     const user = await UserRepository.findById(userId);
 

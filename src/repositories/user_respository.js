@@ -29,6 +29,10 @@ class UserRepository {
     return User.findOne({ where: { phone } });
   }
 
+  async findByEmail(email) {
+    return User.findOne({ where: { email } });
+  }
+
   async createByPhone(phone, name) {
     return this.create({ name, phone });
   }
