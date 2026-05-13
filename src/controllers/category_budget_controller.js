@@ -5,7 +5,7 @@ class CategoryBudgetController {
   async _checkFeature(userId, res) {
     const has = await SubscriptionService.hasFeature(userId, 'category_budgets');
     if (!has) {
-      res.status(403).json({ error: 'Funcionalidade exclusiva dos planos Pro e Business' });
+      res.status(403).json({ error: 'Funcionalidade exclusiva dos planos Pro' });
       return false;
     }
     return true;

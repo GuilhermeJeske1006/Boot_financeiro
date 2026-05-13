@@ -1,5 +1,4 @@
 const ExportService = require('../../services/export_service');
-const CompanyService = require('../../services/company_service');
 
 const MONTH_NAMES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -48,50 +47,13 @@ class ExportMenu {
       }
 
       const format = option === 1 ? 'pdf' : 'excel';
-
-      if (state.context === 'PJ') {
-        const companies = await CompanyService.findByUserId(userId);
-        if (companies.length === 0) {
-          return { done: true, message: '⚠️ Você não possui empresas cadastradas.' };
-        }
-
-        let msg = `🏢 Escolha a empresa para exportar:\n\n`;
-        companies.forEach((company, index) => {
-          msg += `  📊 *${index + 1}* ➜ ${company.name}\n`;
-        });
-        msg += `\n_Digite o número da empresa_ ✍️`;
-
-        return {
-          newState: { ...state, step: 2, data: { ...state.data, format, companies } },
-          message: msg,
-        };
-      }
-
       return {
-        newState: { ...state, step: 3, data: { ...state.data, format, company_id: null } },
+        newState: { ...state, step: 2, data: { ...state.data, format } },
         message: this.askMonth(),
       };
     }
 
     if (state.step === 2) {
-      const companies = state.data.companies;
-      const index = parseInt(input) - 1;
-
-      if (isNaN(index) || index < 0 || index >= companies.length) {
-        return {
-          newState: state,
-          message: `⚠️ Opção inválida. Digite um número de 1 a ${companies.length}.`,
-        };
-      }
-
-      const selected = companies[index];
-      return {
-        newState: { ...state, step: 3, data: { ...state.data, company_id: selected.id } },
-        message: this.askMonth(),
-      };
-    }
-
-    if (state.step === 3) {
       const parts = input.split('/');
       if (parts.length !== 2) {
         return { newState: state, message: '⚠️ Formato inválido. Use MM/AAAA (ex: 01/2026):' };
@@ -101,13 +63,12 @@ class ExportMenu {
         return { newState: state, message: '⚠️ Mês/ano inválido. Use MM/AAAA (ex: 01/2026):' };
       }
 
-      const companyId = state.data.company_id || null;
       const format = state.data.format;
       const monthName = MONTH_NAMES[month - 1];
 
       try {
         if (format === 'pdf') {
-          const doc = await ExportService.generatePDF(year, month, userId, companyId);
+          const doc = await ExportService.generatePDF(year, month, userId);
           const buffer = await streamToBuffer(doc);
 
           return {
@@ -120,7 +81,7 @@ class ExportMenu {
             },
           };
         } else {
-          const buffer = await ExportService.generateExcel(year, month, userId, companyId);
+          const buffer = await ExportService.generateExcel(year, month, userId);
 
           return {
             done: true,

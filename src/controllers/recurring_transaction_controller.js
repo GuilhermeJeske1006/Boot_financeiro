@@ -12,10 +12,7 @@ class RecurringTransactionController {
 
   async list(req, res) {
     try {
-      const { company_id } = req.query;
-      const records = company_id
-        ? await RecurringTransactionService.listByCompany(Number(company_id))
-        : await RecurringTransactionService.listByUser(req.userId);
+      const records = await RecurringTransactionService.listByUser(req.userId);
       return res.json(records);
     } catch (error) {
       return res.status(400).json({ error: error.message });

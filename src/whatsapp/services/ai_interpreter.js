@@ -65,7 +65,7 @@ class AiInterpreter {
 
   // Interpreta sem checar ai_enabled (usado no modo chat da sessão)
   // Retorna string de erro amigável em vez de null para falhas de API
-  async interpret(userId, input, companyId = null) {
+  async interpret(userId, input) {
     if (!process.env.ANTHROPIC_API_KEY) {
       return `⚠️ *IA não configurada.* Variável ANTHROPIC_API_KEY ausente.`;
     }
@@ -74,7 +74,7 @@ class AiInterpreter {
     if (!user) return null;
 
     try {
-      return await this._process(userId, input, user, companyId);
+      return await this._process(userId, input, user);
     } catch (err) {
       const msg = err.message || '';
       if (msg.includes('credit balance is too low') || msg.includes('insufficient')) {
@@ -90,50 +90,6 @@ class AiInterpreter {
         `_Digite *menu* para usar o bot com menus._`
       );
     }
-  }
-
-  // Apenas parseia a intenção sem criar transação (para uso no modo chat multi-empresa)
-  async parseIntent(userId, input) {
-    if (/^\d+$/.test(input.trim())) return null;
-    if (input.trim().startsWith('/')) return null;
-    const lower = input.toLowerCase().trim();
-    if (['sair', 'menu', 's', 'n', 'trocar'].includes(lower)) return null;
-
-    const user = await UserRepository.findById(userId);
-    if (!user) return null;
-
-    const [expenseCategories, incomeCategories] = await Promise.all([
-      CategoryRepository.findByType('expense', userId),
-      CategoryRepository.findByType('income', userId),
-    ]);
-    const systemPrompt = buildSystemPrompt(expenseCategories, incomeCategories);
-
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const userMessage = `Data atual: ${today}\nMensagem: ${input}`;
-      const contextLength = user.ai_context_length || 0;
-      const history = contextLength > 0
-        ? (this.contextHistory.get(userId) || []).slice(-contextLength)
-        : [];
-
-      const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        system: systemPrompt,
-        messages: [...history, { role: 'user', content: userMessage }],
-      });
-
-      let text = response.content[0].text.trim();
-      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-      return JSON.parse(text);
-    } catch (err) {
-      return null;
-    }
-  }
-
-  // Executa uma transação a partir de um intent já parseado (usado após seleção de empresa)
-  async executeTransaction(userId, parsed, companyId = null) {
-    return await this._handleTransaction(userId, parsed, companyId);
   }
 
   // Transcreve áudio e interpreta como financeiro (usado no modo chat)
@@ -188,7 +144,7 @@ class AiInterpreter {
     return response.text?.trim() || null;
   }
 
-  async _process(userId, input, user, companyId = null) {
+  async _process(userId, input, user) {
     // Só interpreta mensagens que parecem texto livre (não números, não comandos /x)
     if (/^\d+$/.test(input.trim())) return null;
     if (input.trim().startsWith('/')) return null;
@@ -259,7 +215,7 @@ class AiInterpreter {
     }
 
     if ((parsed.intent === 'income' || parsed.intent === 'expense') && parsed.amount) {
-      return await this._handleTransaction(userId, parsed, companyId);
+      return await this._handleTransaction(userId, parsed);
     }
 
     return null;
@@ -282,9 +238,9 @@ class AiInterpreter {
     ].join('\n');
   }
 
-  async _handleTransaction(userId, parsed, companyId = null) {
+  async _handleTransaction(userId, parsed) {
     const canCreate = await SubscriptionService.canCreateTransaction(userId);
-    if (!canCreate) return null; // deixa o menu normal mostrar o aviso de limite
+    if (!canCreate) return null;
 
     const { intent: type, amount, category: categorySearch, description, date } = parsed;
     const categories = await CategoryRepository.findByType(type, userId);
@@ -300,19 +256,14 @@ class AiInterpreter {
     if (!category) return null;
 
     const transactionDate = date || new Date().toISOString().split('T')[0];
-    const transactionData = {
+    await TransactionService.create({
       type,
       amount,
       description: description || null,
       category_id: category.id,
       date: transactionDate,
-    };
-    if (companyId) {
-      transactionData.company_id = companyId;
-    } else {
-      transactionData.user_id = userId;
-    }
-    await TransactionService.create(transactionData);
+      user_id: userId,
+    });
 
     const typeEmoji = type === 'income' ? '📈' : '📉';
     const typeLabel = type === 'income' ? 'Entrada' : 'Saída';

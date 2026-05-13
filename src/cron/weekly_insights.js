@@ -2,15 +2,12 @@ const cron = require('node-cron');
 const UserRepository = require('../repositories/user_respository');
 const SubscriptionService = require('../services/subscription_service');
 const InsightsService = require('../whatsapp/services/insights_service');
-const { getClient, markWebhookMessage } = require('../whatsapp/client');
+const { sendMessage } = require('../whatsapp/client');
 
 function startWeeklyInsightsCron() {
   // Toda sexta-feira às 9h
   cron.schedule('0 9 * * 5', async () => {
     try {
-      const client = getClient();
-      if (!client) return;
-
       const users = await UserRepository.findAll();
       for (const user of users) {
         if (!user.phone) continue;
@@ -19,8 +16,7 @@ function startWeeklyInsightsCron() {
           if (!hasFeature) continue;
 
           const insight = await InsightsService.generateWeeklyInsight(user.id);
-          markWebhookMessage(user.phone);
-          await client.sendMessage(user.phone, insight);
+          await sendMessage(user.phone, insight);
           console.log(`Insight semanal enviado para ${user.phone}.`);
         } catch (err) {
           console.error(`Falha ao enviar insight para ${user.phone}:`, err.message);

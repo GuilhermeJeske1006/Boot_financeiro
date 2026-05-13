@@ -64,16 +64,6 @@ class RecurringTransaction extends Model {
         sequelize,
         modelName: 'RecurringTransaction',
         tableName: 'recurring_transactions',
-        validate: {
-          eitherUserOrCompany() {
-            if (!this.user_id && !this.company_id) {
-              throw new Error('Transação recorrente deve ter user_id ou company_id');
-            }
-            if (this.user_id && this.company_id) {
-              throw new Error('Transação recorrente não pode ter user_id e company_id simultaneamente');
-            }
-          },
-        },
       }
     );
   }

@@ -1,24 +1,20 @@
 const express = require('express');
-const path = require('path');
-const QRCode = require('qrcode');
-const { getWhatsAppStatus } = require('../whatsapp/client');
+const { handleWebhook } = require('../whatsapp/handler');
+const { getTempMedia } = require('../whatsapp/client');
 
 const router = express.Router();
 
-router.get('/qr', (req, res) => {
-  // Permite inline scripts apenas nesta rota de administração
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
-  res.sendFile(path.join(__dirname, '../views/whatsapp_qr.html'));
-});
+// Twilio envia form-urlencoded, não JSON
+router.post('/webhook', express.urlencoded({ extended: false }), handleWebhook);
 
-router.get('/status', async (req, res) => {
-  const { connected, qr } = getWhatsAppStatus();
-
-  if (connected) return res.json({ connected: true, qr: null });
-  if (!qr) return res.json({ connected: false, qr: null });
-
-  const qrImage = await QRCode.toDataURL(qr);
-  res.json({ connected: false, qr: qrImage });
+// Servir arquivos temporários (PDF, Excel) para Twilio buscar e entregar ao usuário
+router.get('/media/:token', (req, res) => {
+  const media = getTempMedia(req.params.token);
+  if (!media) return res.status(404).end();
+  const buf = Buffer.from(media.data, 'base64');
+  res.setHeader('Content-Type', media.mimetype);
+  res.setHeader('Content-Disposition', `attachment; filename="${media.filename}"`);
+  res.end(buf);
 });
 
 module.exports = router;

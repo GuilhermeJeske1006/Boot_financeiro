@@ -41,12 +41,6 @@ class SubscriptionService {
     return !!subscription.plan[feature];
   }
 
-  // Verifica se o usuário pode cadastrar empresas (apenas plano Business)
-  async canAddCompany(userId) {
-    const subscription = await SubscriptionRepository.findActiveByUserId(userId);
-    if (!subscription) return false;
-    return subscription.plan.max_companies === -1;
-  }
 }
 
 module.exports = new SubscriptionService();

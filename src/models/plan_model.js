@@ -29,11 +29,6 @@ class Plan extends Model {
           allowNull: false,
           defaultValue: 50,
         },
-        max_companies: {
-          type: DataTypes.INTEGER,
-          allowNull: false,
-          defaultValue: 1,
-        },
         // Features booleanas
         whatsapp_reports: {
           type: DataTypes.BOOLEAN,
@@ -41,11 +36,6 @@ class Plan extends Model {
           defaultValue: false,
         },
         pdf_export: {
-          type: DataTypes.BOOLEAN,
-          allowNull: false,
-          defaultValue: false,
-        },
-        multi_user: {
           type: DataTypes.BOOLEAN,
           allowNull: false,
           defaultValue: false,

@@ -14,8 +14,7 @@ class EditTransactionMenu {
       const sign = t.type === 'income' ? '📈' : '📉';
       const date = new Date(t.date).toLocaleDateString('pt-BR');
       const amount = Number(t.amount).toFixed(2).replace('.', ',');
-      const company = t.company ? ` [${t.company.name}]` : '';
-      msg += `*${i + 1}* ${sign} R$ ${amount} — ${t.category?.name || '—'}${company} (${date})\n`;
+      msg += `*${i + 1}* ${sign} R$ ${amount} — ${t.category?.name || '—'} (${date})\n`;
       if (t.description) msg += `   _${t.description}_\n`;
     });
     msg += `\n*0* ➜ Cancelar\n\n_Digite o número da transação_ ✍️`;

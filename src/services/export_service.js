@@ -1,7 +1,6 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const TransactionService = require('./transaction_service');
-const CompanyService = require('./company_service');
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -17,14 +16,11 @@ function formatDate(dateStr) {
   return `${day}/${month}/${year}`;
 }
 
-async function buildReportData(year, month, userId, companyId) {
+async function buildReportData(year, month, userId) {
   const [transactions, summary] = await Promise.all([
-    TransactionService.getMonthTransactions(year, month, userId, companyId || null),
-    TransactionService.getMonthSummary(year, month, userId, companyId || null),
+    TransactionService.getMonthTransactions(year, month, userId),
+    TransactionService.getMonthSummary(year, month, userId),
   ]);
-
-  console.log('Transactions:', transactions);
-  console.log('Summary:', summary);
 
   let totalIncome = 0;
   let totalExpense = 0;
@@ -42,20 +38,14 @@ async function buildReportData(year, month, userId, companyId) {
     }
   }
 
-  let label = 'Pessoal';
-  if (companyId) {
-    const company = await CompanyService.findById(companyId);
-    label = company ? company.name : 'Empresa';
-  }
-
-  return { transactions, incomeRows, expenseRows, totalIncome, totalExpense, label };
+  return { transactions, incomeRows, expenseRows, totalIncome, totalExpense, label: 'Pessoal' };
 }
 
 class ExportService {
   // Retorna um stream do pdfkit para ser pipado na resposta HTTP
-  async generatePDF(year, month, userId, companyId) {
+  async generatePDF(year, month, userId) {
     const { incomeRows, expenseRows, totalIncome, totalExpense, label } =
-      await buildReportData(year, month, userId, companyId);
+      await buildReportData(year, month, userId);
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
 
@@ -106,9 +96,9 @@ class ExportService {
   }
 
   // Retorna um buffer Excel
-  async generateExcel(year, month, userId, companyId) {
+  async generateExcel(year, month, userId) {
     const { transactions, incomeRows, expenseRows, totalIncome, totalExpense, label } =
-      await buildReportData(year, month, userId, companyId);
+      await buildReportData(year, month, userId);
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Gestão Financeira';

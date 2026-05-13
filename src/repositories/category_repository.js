@@ -18,13 +18,13 @@ class CategoryRepository {
     });
   }
 
-  async findByType(type, userId, isCompany = false) {
+  async findByType(type, userId) {
     return Category.findAll({
       where: {
         type: { [Op.in]: [type, 'both'] },
         [Op.or]: [
           { user_id: userId },
-          { is_default: true, user_id: null, is_company: isCompany },
+          { is_default: true, user_id: null },
         ],
       },
       order: [['name', 'ASC']],

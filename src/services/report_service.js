@@ -1,5 +1,4 @@
 const TransactionService = require('./transaction_service');
-const CompanyService = require('./company_service');
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -7,8 +6,8 @@ const MONTH_NAMES = [
 ];
 
 class ReportService {
-  async getMonthTotals(year, month, userId, companyId = null) {
-    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
+  async getMonthTotals(year, month, userId) {
+    const summary = await TransactionService.getMonthSummary(year, month, userId);
     let totalIncome = 0;
     let totalExpense = 0;
     for (const row of summary) {
@@ -19,8 +18,8 @@ class ReportService {
     return { totalIncome, totalExpense, balance: totalIncome - totalExpense };
   }
 
-  async generateMonthlyReport(year, month, userId, companyId = null, prevTotals = null) {
-    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
+  async generateMonthlyReport(year, month, userId, prevTotals = null) {
+    const summary = await TransactionService.getMonthSummary(year, month, userId);
 
     let totalIncome = 0;
     let totalExpense = 0;
@@ -40,14 +39,8 @@ class ReportService {
 
     const balance = totalIncome - totalExpense;
 
-    let reportType = '👤 Pessoal';
-    if (companyId) {
-      const company = await CompanyService.findById(companyId);
-      reportType = `🏢 ${company.name}`;
-    }
-
     let report = `📊 *Relatório Financeiro*\n`;
-    report += `${reportType}\n`;
+    report += `👤 Pessoal\n`;
     report += `🗓️ *${MONTH_NAMES[month - 1]}/${year}*\n`;
     report += `━━━━━━━━\n\n`;
 
@@ -89,57 +82,6 @@ class ReportService {
       report += `  ${trend(-diffExpense)} Despesas: ${fmt(diffExpense)}\n`;
       report += `  ${trend(diffBalance)} Saldo: ${fmt(diffBalance)}\n`;
     }
-
-    return report;
-  }
-
-  async generateMonthlyReportCompany(year, month, userId, companyId) {
-    const summary = await TransactionService.getMonthSummary(year, month, userId, companyId);
-    let report = `*Relatório Mensal da Empresa*\n`;
-    report += `Ano: ${year}, Mês: ${month}\n`;
-    report += `━━━━━━━━\n`;
-
-    let totalIncome = 0;
-    let totalExpense = 0;
-
-    for (const row of summary) {
-        if (row.type === 'income') {
-            totalIncome += parseFloat(row.total);
-        } else if (row.type === 'expense') {
-            totalExpense += parseFloat(row.total);
-        }
-    }
-
-    report += `\n💰 *Receitas Totais: R$ ${totalIncome.toFixed(2)}*\n`;
-    report += `━━━━━━━━\n`;
-
-    const incomeByCategory = summary.filter(r => r.type === 'income');
-    if (incomeByCategory.length === 0) {
-        report += `Nenhuma receita registrada.\n`;
-    } else {
-        for (const item of incomeByCategory) {
-            report += `  • ${item.category_name}: R$ ${parseFloat(item.total).toFixed(2)}\n`;
-        }
-    }
-
-    report += `\n💸 *Despesas Totais: R$ ${totalExpense.toFixed(2)}*\n`;
-    report += `━━━━━━━━\n`;
-
-    const expenseByCategory = summary.filter(r => r.type === 'expense');
-    if (expenseByCategory.length === 0) {
-        report += `Nenhuma despesa registrada.\n`;
-    } else {
-        for (const item of expenseByCategory) {
-            report += `  • ${item.category_name}: R$ ${parseFloat(item.total).toFixed(2)}\n`;
-        }
-    }
-
-    report += `━━━━━━━━\n`;
-
-    const balance = totalIncome - totalExpense;
-    const emoji = balance >= 0 ? '🟢' : '🔴';
-    const sign = balance >= 0 ? '+' : '-';
-    report += `${emoji} *Saldo do mês: ${sign} R$ ${Math.abs(balance).toFixed(2)}*\n`;
 
     return report;
   }

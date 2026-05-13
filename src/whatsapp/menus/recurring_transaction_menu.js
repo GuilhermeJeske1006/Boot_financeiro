@@ -1,5 +1,4 @@
 const CategoryService = require('../../services/category_service');
-const CompanyService = require('../../services/company_service');
 const RecurringTransactionService = require('../../services/recurring_transaction_service');
 
 const FREQUENCY_LABELS = {
@@ -21,13 +20,13 @@ const FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 class RecurringTransactionMenu {
   showMainMenu() {
     return (
-      `🔄 *Transações Recorrentes*\n` +
-      `\n\n` +
+      `🔄 *Transações Recorrentes*\n\n` +
       `Escolha uma opção:\n\n` +
-      `1️⃣ ➜ Ver transações recorrentes 📋\n` +
-      `2️⃣ ➜ Cadastrar nova 📝\n` +
-      `3️⃣ ➜ Remover recorrência 🗑️\n` +
-      `0️⃣ ➜ Voltar ao menu 🔙\n\n` +
+      `  📋 *1* ➜ Ver transações recorrentes\n` +
+      `  📝 *2* ➜ Cadastrar nova\n` +
+      `  🗑️ *3* ➜ Remover recorrência\n` +
+      `  🔙 *0* ➜ Voltar ao menu\n` +
+      `  🔚 *sair* ➜ Finalizar sessão\n\n` +
       `_Digite o número da opção_ ✍️`
     );
   }
@@ -66,38 +65,16 @@ class RecurringTransactionMenu {
     }
 
     if (option === '1') {
-      const list = await this._buildList(userId, state.context);
+      const list = await this._buildList(userId);
       return { done: true, message: list };
     }
 
     if (option === '2') {
-      // Inicia fluxo de criação
-      if (state.context === 'PJ') {
-        const companies = await CompanyService.findByUserId(userId);
-        if (companies.length === 0) {
-          return { done: true, message: '⚠️ Você não possui empresas cadastradas.' };
-        }
-        let msg = `🏢 Selecione a empresa:\n\n`;
-        companies.forEach((c, i) => {
-          msg += `  📊 *${i + 1}* ➜ ${c.name}\n`;
-        });
-        msg += `\n_Digite o número da empresa_ ✍️`;
-        return {
-          newState: {
-            ...state,
-            step: state.step + 1,
-            data: { subflow: 'create', create_step: 1, is_personal: false, companies },
-          },
-          message: msg,
-        };
-      }
-
-      // PF ou null: vai direto para tipo
       return {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { subflow: 'create', create_step: 2, is_personal: true },
+          data: { subflow: 'create', create_step: 1 },
         },
         message: this._askType(),
       };
@@ -115,7 +92,7 @@ class RecurringTransactionMenu {
         const freq = FREQUENCY_LABELS[rt.frequency] || rt.frequency;
         msg += `  ${emoji} *${i + 1}* ➜ ${rt.description || rt.category?.name} — R$ ${parseFloat(rt.amount).toFixed(2)} (${freq})\n`;
       });
-      msg += `\n0️⃣ ➜ Cancelar\n_Digite o número_ ✍️`;
+      msg += `\n  🔙 *0* ➜ Cancelar\n_Digite o número_ ✍️`;
       return {
         newState: {
           ...state,
@@ -134,30 +111,11 @@ class RecurringTransactionMenu {
   async _handleCreateStep(state, input, userId) {
     const cs = state.data.create_step;
 
-    // create_step 1: seleção de empresa (contexto PJ)
+    // create_step 1: tipo (income/expense)
     if (cs === 1) {
-      const companies = state.data.companies;
-      const index = parseInt(input) - 1;
-      if (isNaN(index) || index < 0 || index >= companies.length) {
-        return { newState: state, message: `⚠️ Opção inválida. Digite um número de 1 a ${companies.length}.` };
-      }
-      const selected = companies[index];
-      return {
-        newState: {
-          ...state,
-          step: state.step + 1,
-          data: { ...state.data, create_step: 2, company_id: selected.id, company_name: selected.name },
-        },
-        message: this._askType(),
-      };
-    }
-
-    // create_step 2: tipo (income/expense)
-    if (cs === 2) {
       if (input === '1' || input === '2') {
         const type = input === '1' ? 'income' : 'expense';
-        const isCompany = !state.data.is_personal;
-        const categories = await CategoryService.findByType(type, userId, isCompany);
+        const categories = await CategoryService.findByType(type, userId);
         const emoji = type === 'income' ? '💚' : '🔴';
         let msg = `🏷️ Escolha a *categoria*:\n\n`;
         categories.forEach((c, i) => {
@@ -168,7 +126,7 @@ class RecurringTransactionMenu {
           newState: {
             ...state,
             step: state.step + 1,
-            data: { ...state.data, create_step: 3, type, categories },
+            data: { ...state.data, create_step: 2, type, categories },
           },
           message: msg,
         };
@@ -176,8 +134,8 @@ class RecurringTransactionMenu {
       return { newState: state, message: `⚠️ Digite *1* para Receita ou *2* para Despesa.` };
     }
 
-    // create_step 3: categoria
-    if (cs === 3) {
+    // create_step 2: categoria
+    if (cs === 2) {
       const categories = state.data.categories;
       const index = parseInt(input) - 1;
       if (isNaN(index) || index < 0 || index >= categories.length) {
@@ -188,14 +146,14 @@ class RecurringTransactionMenu {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { ...state.data, create_step: 4, category_id: selected.id, category_name: selected.name },
+          data: { ...state.data, create_step: 3, category_id: selected.id, category_name: selected.name },
         },
         message: `✅ Categoria: *${selected.name}*\n\n💲 Digite o *valor* (ex: 1500.00):`,
       };
     }
 
-    // create_step 4: valor
-    if (cs === 4) {
+    // create_step 3: valor
+    if (cs === 3) {
       const amount = parseFloat(input.replace(',', '.'));
       if (isNaN(amount) || amount <= 0) {
         return { newState: state, message: '⚠️ Valor inválido. Digite um número positivo (ex: 1500.00):' };
@@ -204,27 +162,27 @@ class RecurringTransactionMenu {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { ...state.data, create_step: 5, amount },
+          data: { ...state.data, create_step: 4, amount },
         },
         message: `✅ Valor: *R$ ${amount.toFixed(2)}*\n\n📝 Digite uma *descrição* (ex: Aluguel) ou *pular*:`,
       };
     }
 
-    // create_step 5: descrição
-    if (cs === 5) {
+    // create_step 4: descrição
+    if (cs === 4) {
       const description = input.toLowerCase() === 'pular' ? null : input;
       return {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { ...state.data, create_step: 6, description },
+          data: { ...state.data, create_step: 5, description },
         },
         message: this._askFrequency(),
       };
     }
 
-    // create_step 6: frequência
-    if (cs === 6) {
+    // create_step 5: frequência
+    if (cs === 5) {
       const index = parseInt(input) - 1;
       if (isNaN(index) || index < 0 || index >= FREQUENCIES.length) {
         return { newState: state, message: `⚠️ Opção inválida.\n\n${this._askFrequency()}` };
@@ -234,27 +192,25 @@ class RecurringTransactionMenu {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { ...state.data, create_step: 7, frequency },
+          data: { ...state.data, create_step: 6, frequency },
         },
         message: `✅ Frequência: *${FREQUENCY_LABELS[frequency]}*\n\n📅 Digite a *data de início* (DD/MM/AAAA)\n(ex: 05/03/2026):`,
       };
     }
 
-    // create_step 7: data de início
-    if (cs === 7) {
+    // create_step 6: data de início
+    if (cs === 6) {
       const parsed = this._parseDate(input);
       if (!parsed) {
         return { newState: state, message: '⚠️ Data inválida. Use DD/MM/AAAA (ex: 05/03/2026):' };
       }
       const [dateStr, dateDisplay] = parsed;
       const d = state.data;
-      const locationLabel = d.is_personal ? '👤 Pessoal' : `🏢 ${d.company_name}`;
       const typeLabel = d.type === 'income' ? '📈 Receita' : '📉 Despesa';
       const freqEmoji = FREQUENCY_EMOJIS[d.frequency];
 
       let summary = `🔄 *Resumo da Recorrência:*\n`;
       summary += `\n`;
-      summary += `${locationLabel}\n`;
       summary += `${typeLabel}\n`;
       summary += `🏷️ Categoria: ${d.category_name}\n`;
       summary += `💲 Valor: R$ ${d.amount.toFixed(2)}\n`;
@@ -268,14 +224,14 @@ class RecurringTransactionMenu {
         newState: {
           ...state,
           step: state.step + 1,
-          data: { ...state.data, create_step: 8, next_date: dateStr },
+          data: { ...state.data, create_step: 7, next_date: dateStr },
         },
         message: summary,
       };
     }
 
-    // create_step 8: confirmação
-    if (cs === 8) {
+    // create_step 7: confirmação
+    if (cs === 7) {
       if (input.toUpperCase() === 'S') {
         const d = state.data;
         await RecurringTransactionService.create(
@@ -284,7 +240,6 @@ class RecurringTransactionMenu {
             amount: d.amount,
             description: d.description,
             category_id: d.category_id,
-            company_id: d.is_personal ? null : d.company_id,
             frequency: d.frequency,
             next_date: d.next_date,
           },
@@ -346,14 +301,8 @@ class RecurringTransactionMenu {
 
   // ───────────── HELPERS ─────────────
 
-  async _buildList(userId, context) {
-    let list;
-    if (context === 'PJ') {
-      // Mostra todas as recorrências das empresas do usuário (simplificado: por user_id nas recorrências pessoais)
-      list = await RecurringTransactionService.listByUser(userId);
-    } else {
-      list = await RecurringTransactionService.listByUser(userId);
-    }
+  async _buildList(userId) {
+    const list = await RecurringTransactionService.listByUser(userId);
 
     if (list.length === 0) {
       return '📋 Nenhuma transação recorrente cadastrada.\n\nUse a opção *2* para cadastrar.';

@@ -77,7 +77,7 @@ class BudgetMenu {
   async _handleMainOption(state, input, userId) {
     if (input === '1') {
       // Define budget: show expense categories
-      const categories = await CategoryService.findByType('expense', userId, false);
+      const categories = await CategoryService.findByType('expense', userId);
       if (categories.length === 0) {
         return {
           newState: state,

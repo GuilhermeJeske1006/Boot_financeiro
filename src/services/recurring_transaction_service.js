@@ -44,16 +44,12 @@ class RecurringTransactionService {
       throw new Error('Data de início (next_date) é obrigatória');
     }
 
-    const user_id = data.company_id ? null : ownerUserId;
-    const company_id = data.company_id || null;
-
     return RecurringTransactionRepository.create({
       type: data.type,
       amount: Number(data.amount),
       description: data.description || null,
       category_id: data.category_id,
-      user_id,
-      company_id,
+      user_id: ownerUserId,
       frequency: data.frequency,
       next_date: data.next_date,
       is_active: true,
@@ -64,17 +60,11 @@ class RecurringTransactionService {
     return RecurringTransactionRepository.findAllByUser(userId);
   }
 
-  async listByCompany(companyId) {
-    return RecurringTransactionRepository.findAllByCompany(companyId);
-  }
-
   async update(id, data, ownerUserId) {
     const record = await RecurringTransactionRepository.findById(id);
     if (!record) throw new Error('Transação recorrente não encontrada');
 
-    const belongsToUser = record.user_id === ownerUserId;
-    const belongsToCompany = record.company_id && data.company_id === record.company_id;
-    if (!belongsToUser && !belongsToCompany) {
+    if (record.user_id !== ownerUserId) {
       throw new Error('Sem permissão para editar esta transação recorrente');
     }
 
@@ -96,7 +86,7 @@ class RecurringTransactionService {
     const record = await RecurringTransactionRepository.findById(id);
     if (!record) throw new Error('Transação recorrente não encontrada');
 
-    if (record.user_id !== ownerUserId && !record.company_id) {
+    if (record.user_id !== ownerUserId) {
       throw new Error('Sem permissão para remover esta transação recorrente');
     }
 
@@ -119,7 +109,6 @@ class RecurringTransactionService {
           description: rt.description,
           category_id: rt.category_id,
           user_id: rt.user_id,
-          company_id: rt.company_id,
           date: rt.next_date,
         });
 
@@ -127,19 +116,17 @@ class RecurringTransactionService {
         await RecurringTransactionRepository.update(rt.id, { next_date: newNextDate });
         results.created++;
 
-        // Prepara notificação WhatsApp
-        const phone = rt.user?.phone || rt.company?.user?.phone;
+        const phone = rt.user?.phone;
         if (phone) {
           const typeLabel = TYPE_LABELS[rt.type] || rt.type;
           const categoryName = rt.category?.name || '—';
           const freqLabel = FREQ_LABELS[rt.frequency] || rt.frequency;
-          const companyInfo = rt.company ? ` [${rt.company.name}]` : '';
           const desc = rt.description ? ` — ${rt.description}` : '';
           const msg = [
             `🔄 *Transação recorrente criada automaticamente*`,
             ``,
             `${typeLabel}: *R$ ${parseFloat(rt.amount).toFixed(2)}*`,
-            `🏷️ Categoria: ${categoryName}${companyInfo}${desc}`,
+            `🏷️ Categoria: ${categoryName}${desc}`,
             `🔁 Frequência: ${freqLabel}`,
             `📅 Data: ${new Date(rt.next_date + 'T12:00:00').toLocaleDateString('pt-BR')}`,
             ``,

@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const ReportService = require('../services/report_service');
 const UserRepository = require('../repositories/user_respository');
 const SubscriptionService = require('../services/subscription_service');
-const { getClient } = require('../whatsapp/client');
+const { sendMessage } = require('../whatsapp/client');
 
 function startMonthlyCron() {
   // executa às 20:00 nos dias 28-31 de cada mês
@@ -20,8 +20,6 @@ function startMonthlyCron() {
       const month = now.getMonth() + 1;
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
-      const client = getClient();
-      if (!client) return;
 
       // envia relatório para cada usuário que tem telefone cadastrado
       const users = await UserRepository.findAll();
@@ -32,8 +30,8 @@ function startMonthlyCron() {
           if (!hasFeature) continue;
 
           const prevTotals = await ReportService.getMonthTotals(prevYear, prevMonth, user.id);
-          const report = await ReportService.generateMonthlyReport(year, month, user.id, null, prevTotals);
-          await client.sendMessage(user.phone, report);
+          const report = await ReportService.generateMonthlyReport(year, month, user.id, prevTotals);
+          await sendMessage(user.phone, report);
           console.log(`Relatório mensal ${month}/${year} enviado para ${user.phone}.`);
         } catch (err) {
           console.error(`Falha ao enviar relatório para ${user.phone}:`, err);

@@ -3,11 +3,8 @@ const RecurringTransactionService = require('../services/recurring_transaction_s
 
 async function notifyUser(phone, message) {
   try {
-    const { getClient, markWebhookMessage } = require('../whatsapp/client');
-    const client = getClient();
-    if (!client) return;
-    markWebhookMessage(phone);
-    await client.sendMessage(phone, message);
+    const { sendMessage } = require('../whatsapp/client');
+    await sendMessage(phone, message);
   } catch (err) {
     console.error('Erro ao notificar recorrência via WhatsApp:', err.message);
   }

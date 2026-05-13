@@ -2,11 +2,10 @@ const SubscriptionService = require('../services/subscription_service');
 const AbacatePayService = require('../services/abacatepay_service');
 const SubscriptionRepository = require('../repositories/subscription_repository');
 const UserRepository = require('../repositories/user_respository');
-const { getClient } = require('../whatsapp/client');
+const { sendMessage } = require('../whatsapp/client');
 
 async function sendUpgradeWhatsApp(user, plans, links) {
-  const wClient = getClient();
-  if (!wClient || !user.phone) return;
+  if (!user.phone) return;
 
   const proLink = links.pro || null;
   const businessLink = links.business || null;
@@ -35,13 +34,11 @@ async function sendUpgradeWhatsApp(user, plans, links) {
     lines.push(
       `🏢 *Plano Business — R$ ${parseFloat(plans.business.price_brl).toFixed(2).replace('.', ',')}/mês*`,
       '✅ Tudo do Pro',
-      '✅ Empresas ilimitadas',
-      '✅ Múltiplos usuários por empresa',
       `🔗 Assinar: ${businessLink}`,
     );
   }
 
-  await wClient.sendMessage(user.phone, lines.join('\n'));
+  await sendMessage(user.phone, lines.join('\n'));
 }
 
 class CheckPlan {

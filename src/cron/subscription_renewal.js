@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const SubscriptionRepository = require('../repositories/subscription_repository');
 const AbacatePayService = require('../services/abacatepay_service');
-const { getClient, markWebhookMessage } = require('../whatsapp/client');
+const { sendMessage } = require('../whatsapp/client');
 
 const DAYS_BEFORE_EXPIRY = 5;
 
@@ -9,9 +9,6 @@ function startSubscriptionRenewalCron() {
   // Executa todo dia às 10:00
   cron.schedule('0 10 * * *', async () => {
     try {
-      const client = getClient();
-      if (!client) return;
-
       const expiring = await SubscriptionRepository.findExpiringSoon(DAYS_BEFORE_EXPIRY);
 
       for (const subscription of expiring) {
@@ -37,8 +34,7 @@ function startSubscriptionRenewalCron() {
             `✅ Após o pagamento, seu plano será renovado automaticamente por mais 30 dias.`,
           ].join('\n');
 
-          markWebhookMessage(user.phone);
-          await client.sendMessage(user.phone, msg);
+          await sendMessage(user.phone, msg);
 
           console.log(`[RenewalCron] Lembrete de renovação enviado para ${user.phone} (plano ${plan.name})`);
         } catch (err) {

@@ -5,10 +5,11 @@ class CategoryMenu {
     return (
       `🏷️ *Gerenciar Categorias*\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `1️⃣ ➜ Listar todas as categorias 📋\n` +
-      `2️⃣ ➜ Criar nova categoria ➕\n` +
-      `3️⃣ ➜ Excluir categoria 🗑️\n` +
-      `0️⃣ ➜ Sair 🔚\n\n` +
+      `  📋 *1* ➜ Listar todas as categorias\n` +
+      `  ➕ *2* ➜ Criar nova categoria\n` +
+      `  🗑️ *3* ➜ Excluir categoria\n` +
+      `  🔙 *0* ➜ Voltar ao menu\n` +
+      `  🔚 *sair* ➜ Finalizar sessão\n\n` +
       `_Digite o número da opção_ ✍️`
     );
   }
@@ -91,9 +92,9 @@ class CategoryMenu {
       message:
         `✅ Nome: *${input.trim()}*\n\n` +
         `Qual o tipo?\n\n` +
-        `1️⃣ ➜ 💚 Receita (entrada)\n` +
-        `2️⃣ ➜ 🔴 Despesa (saída)\n` +
-        `3️⃣ ➜ 🔵 Ambos\n\n` +
+        `  💚 *1* ➜ Receita (entrada)\n` +
+        `  🔴 *2* ➜ Despesa (saída)\n` +
+        `  🔵 *3* ➜ Ambos\n\n` +
         `_Digite o número_ ✍️`,
     };
   }

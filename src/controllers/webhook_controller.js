@@ -2,7 +2,7 @@ const AbacatePayService = require('../services/abacatepay_service');
 const SubscriptionRepository = require('../repositories/subscription_repository');
 const UserRepository = require('../repositories/user_respository');
 const SlackService = require('../services/slack_service');
-const { getClient, markWebhookMessage } = require('../whatsapp/client');
+const { sendMessage } = require('../whatsapp/client');
 const SessionManager = require('../whatsapp/session_manager');
 const MainMenu = require('../whatsapp/menus/main_menu');
 
@@ -61,9 +61,8 @@ class WebhookController {
 }
 
 async function _sendConfirmationWhatsApp(userId, planName) {
-  const wClient = getClient();
   const user = await UserRepository.findById(userId);
-  if (!wClient || !user?.phone) return;
+  if (!user?.phone) return;
 
   const planLabels = { pro: 'Pro', business: 'Business' };
   const label = planLabels[planName] || planName;
@@ -80,14 +79,12 @@ async function _sendConfirmationWhatsApp(userId, planName) {
     'Bom uso! 🚀',
   ].join('\n');
 
-  markWebhookMessage(user.phone);
-  await wClient.sendMessage(user.phone, confirmationMessage);
+  await sendMessage(user.phone, confirmationMessage);
 
   SessionManager.resetSession(user.phone);
 
   const mainMenuText = await MainMenu.show(userId);
-  markWebhookMessage(user.phone);
-  await wClient.sendMessage(user.phone, mainMenuText);
+  await sendMessage(user.phone, mainMenuText);
 }
 
 module.exports = new WebhookController();

@@ -1,77 +1,89 @@
-const { MessageMedia } = require('whatsapp-web.js');
 const SessionManager = require('./session_manager');
 const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
 const ShortcutHandler = require('./services/shortcut_handler');
 const AiInterpreter = require('./services/ai_interpreter');
-const { getClient, consumeWebhookMessage } = require('./client');
+const { twilioToPhone, sendMessage, sendMediaUrl, storeTempMedia } = require('./client');
 const RateLimiter = require('./rate_limiter');
 
-var MY_ID = process.env.WHATSAPP_ID;
+async function handleWebhook(req, res) {
+  // Responde imediatamente com TwiML vazio (Twilio exige resposta em até 15s)
+  res.type('text/xml').status(200).send('<Response></Response>');
 
-async function handleMessage(message) {
-  if (message.to !== MY_ID) return;
-  if (!message.fromMe) return;
-  if (message.hasQuotedMsg) return;
-  if (message.from.includes('@g.us')) return;
-  const isAudio = message.type === 'ptt' || message.type === 'audio';
-  if (message.type !== 'chat' && !isAudio) return;
-  if (consumeWebhookMessage(message.to)) return;
+  try {
+    const { From, Body, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
+    if (!From) return;
 
-  // if (message.from !== '554791907479@c.us' && message.from !== '554792801006@c.us' && message.from !== '554499891487@c.us') return;
+    const phone = twilioToPhone(From);
+    const numMedia = parseInt(NumMedia || '0', 10);
+    const isAudio = numMedia > 0 && MediaContentType0?.startsWith('audio/');
+    const isMedia = numMedia > 0 && !isAudio;
 
-  const phone = message.from;
+    if (isMedia) return;
 
-  const { blocked, shouldWarn } = RateLimiter.check(phone);
-  if (blocked) {
-    if (shouldWarn) {
-      await message.reply(
-        '⚠️ *Muitas mensagens em pouco tempo!*\n\nAguarde 30 segundos antes de enviar outra mensagem.'
-      );
+    console.log(`[WHATSAPP] Received message from ${phone}: ${Body || '[media]'}`);
+
+    const { blocked, shouldWarn } = RateLimiter.check(phone);
+    if (blocked) {
+      if (shouldWarn) {
+        await sendMessage(phone, '⚠️ *Muitas mensagens em pouco tempo!*\n\nAguarde 30 segundos antes de enviar outra mensagem.');
+      }
+      return;
     }
-    return;
-  }
 
-  let user = await UserRepository.findByPhone(phone);
+    let user = await UserRepository.findByPhone(phone);
+    console.log(`[WHATSAPP] user found: ${user ? user.id : 'null'}`);
 
-  if (!user || RegistrationService.isRegistering(phone)) {
-    if (isAudio) return; // ignora áudio durante o cadastro
-    const userInput = message.body.trim();
-    const result = await RegistrationService.handle(phone, userInput);
-    if (result.reply) await message.reply(result.reply);
-    if (result.done) SessionManager.initSession(phone, result.context);
-    return;
-  }
+    if (!user || RegistrationService.isRegistering(phone)) {
+      if (isAudio) return;
+      const userInput = (Body || '').trim();
+      const result = await RegistrationService.handle(phone, userInput);
+      console.log(`[WHATSAPP] registration reply: ${result.reply ? 'yes' : 'no'}`);
+      if (result.reply) await sendMessage(phone, result.reply);
+      if (result.done) SessionManager.initSession(phone);
+      return;
+    }
 
-  // Áudio: só processa no modo chat
-  if (isAudio) {
-    if (!SessionManager.isInChatMode(phone)) return;
-    const media = await message.downloadMedia();
-    if (!media) return;
-    const response = await AiInterpreter.interpretAudio(user.id, media.data, media.mimetype);
-    if (response) await message.reply(response);
-    return;
-  }
+    if (isAudio) {
+      if (!SessionManager.isInChatMode(phone)) return;
+      const authHeader = 'Basic ' + Buffer.from(
+        `${process.env.TWILIO_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+      ).toString('base64');
+      const audioResponse = await fetch(MediaUrl0, { headers: { Authorization: authHeader } });
+      const buffer = await audioResponse.arrayBuffer();
+      const audioBase64 = Buffer.from(buffer).toString('base64');
+      const reply = await AiInterpreter.interpretAudio(user.id, audioBase64, MediaContentType0);
+      if (reply) await sendMessage(phone, reply);
+      return;
+    }
 
-  const userInput = message.body.trim();
+    const userInput = (Body || '').trim();
+    if (!userInput) return;
 
-  const shortcutResponse = await ShortcutHandler.handle(user.id, userInput);
-  if (shortcutResponse) {
-    await message.reply(shortcutResponse);
-    return;
-  }
+    const shortcutResponse = await ShortcutHandler.handle(user.id, userInput);
+    if (shortcutResponse) {
+      await sendMessage(phone, shortcutResponse);
+      return;
+    }
 
-  const response = await SessionManager.processInput(phone, user.id, userInput);
+    const sessionResponse = await SessionManager.processInput(phone, user.id, userInput);
+    console.log(`[WHATSAPP] sessionResponse type: ${typeof sessionResponse}, value: ${JSON.stringify(sessionResponse)?.slice(0, 80)}`);
+    if (!sessionResponse) return;
 
-  if (!response) return;
-
-  if (typeof response === 'object' && response.media) {
-    const media = new MessageMedia(response.media.mimetype, response.media.data, response.media.filename);
-    const client = getClient();
-    await client.sendMessage(phone, media, { caption: response.text || '' });
-  } else {
-    await message.reply(response);
+    if (typeof sessionResponse === 'object' && sessionResponse.media) {
+      const token = storeTempMedia(
+        sessionResponse.media.data,
+        sessionResponse.media.mimetype,
+        sessionResponse.media.filename,
+      );
+      const mediaUrl = `${process.env.BASE_URL}/whatsapp/media/${token}`;
+      await sendMediaUrl(phone, mediaUrl, sessionResponse.text || '');
+    } else {
+      await sendMessage(phone, sessionResponse);
+    }
+  } catch (err) {
+    console.error('[WhatsApp Webhook] Erro:', err.message);
   }
 }
 
-module.exports = { handleMessage };
+module.exports = { handleWebhook };

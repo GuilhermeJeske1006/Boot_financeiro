@@ -1,4 +1,4 @@
-const { RecurringTransaction, Category, User, Company } = require('../models');
+const { RecurringTransaction, Category, User } = require('../models');
 const { Op } = require('sequelize');
 
 class RecurringTransactionRepository {
@@ -9,14 +9,6 @@ class RecurringTransactionRepository {
   async findAllByUser(userId) {
     return RecurringTransaction.findAll({
       where: { user_id: userId, is_active: true },
-      include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'type'] }],
-      order: [['next_date', 'ASC']],
-    });
-  }
-
-  async findAllByCompany(companyId) {
-    return RecurringTransaction.findAll({
-      where: { company_id: companyId, is_active: true },
       include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'type'] }],
       order: [['next_date', 'ASC']],
     });
@@ -40,7 +32,6 @@ class RecurringTransactionRepository {
     return record.update({ is_active: false });
   }
 
-  // Busca todas as transações recorrentes ativas com next_date <= hoje
   async findDueToday() {
     const today = new Date().toISOString().split('T')[0];
     return RecurringTransaction.findAll({
@@ -51,10 +42,6 @@ class RecurringTransactionRepository {
       include: [
         { model: Category, as: 'category', attributes: ['id', 'name'] },
         { model: User, as: 'user', attributes: ['id', 'phone'] },
-        {
-          model: Company, as: 'company', attributes: ['id', 'name', 'user_id'],
-          include: [{ model: User, as: 'user', attributes: ['id', 'phone'] }],
-        },
       ],
     });
   }

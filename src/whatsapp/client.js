@@ -1,106 +1,14 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const fs = require('fs');
-const path = require('path');
+const twilio = require('twilio');
+const { randomUUID } = require('crypto');
 
-function resolveChromePath() {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  const cacheDir =
-    process.env.PUPPETEER_CACHE_DIR ||
-    path.join(process.cwd(), '.puppeteer_cache');
-  const chromeCacheDir = path.join(cacheDir, 'chrome');
-  if (!fs.existsSync(chromeCacheDir)) return undefined;
-  const versions = fs
-    .readdirSync(chromeCacheDir)
-    .filter((v) => fs.statSync(path.join(chromeCacheDir, v)).isDirectory())
-    .sort();
-  if (!versions.length) return undefined;
-  const binary = path.join(chromeCacheDir, versions[versions.length - 1], 'chrome-linux64', 'chrome');
-  return fs.existsSync(binary) ? binary : undefined;
-}
+const FROM = process.env.TWILIO_WHATSAPP_NUMBER;
 
 let client = null;
-let currentQr = null;
-let connected = false;
-
-// Rastreia mensagens enviadas programaticamente (webhook) para o handler ignorar
-const pendingWebhookMessages = new Map();
-
-function getWhatsAppStatus() {
-  return { connected, qr: currentQr };
-}
-
-function markWebhookMessage(phone) {
-  pendingWebhookMessages.set(phone, (pendingWebhookMessages.get(phone) || 0) + 1);
-}
-
-function consumeWebhookMessage(phone) {
-  const count = pendingWebhookMessages.get(phone) || 0;
-  if (count <= 0) return false;
-  if (count === 1) pendingWebhookMessages.delete(phone);
-  else pendingWebhookMessages.set(phone, count - 1);
-  return true;
-}
+const mediaStore = new Map();
 
 function initializeWhatsApp() {
-  client = new Client({
-    authStrategy: new LocalAuth({
-      dataPath: './.wwebjs_auth',
-    }),
-    puppeteer: {
-      headless: true,
-      executablePath: resolveChromePath(),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate',
-        '--no-first-run',
-        '--mute-audio',
-        '--disable-background-networking',
-        '--disable-component-update',
-        '--js-flags=--max-old-space-size=256',
-      ],
-    },
-  });
-
-  client.on('qr', (qr) => {
-    currentQr = qr;
-    connected = false;
-    console.log('Escaneie o QR code abaixo para conectar o WhatsApp:');
-    qrcode.generate(qr, { small: true });
-  });
-
-  client.on('ready', () => {
-    connected = true;
-    currentQr = null;
-    console.log('Bot do WhatsApp conectado e pronto!');
-  });
-
-  client.on('authenticated', () => {
-    console.log('WhatsApp autenticado com sucesso');
-  });
-
-  client.on('auth_failure', (msg) => {
-    console.error('Falha na autenticação do WhatsApp:', msg);
-  });
-
-  client.on('disconnected', (reason) => {
-    connected = false;
-    console.log('WhatsApp desconectado:', reason);
-  });
-
-  const { handleMessage } = require('./handler');
-  client.on('message_create', handleMessage);
-
-  client.initialize();
-
+  client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
+  console.log('Twilio WhatsApp client initialized');
   return client;
 }
 
@@ -108,4 +16,58 @@ function getClient() {
   return client;
 }
 
-module.exports = { initializeWhatsApp, getClient, markWebhookMessage, consumeWebhookMessage, getWhatsAppStatus };
+// '554791907479@c.us' → 'whatsapp:+554791907479'
+function phoneToTwilio(phone) {
+  return 'whatsapp:+' + phone.replace('@c.us', '');
+}
+
+// 'whatsapp:+554791907479' → '554791907479@c.us'
+function twilioToPhone(from) {
+  return from.replace('whatsapp:+', '') + '@c.us';
+}
+
+async function sendMessage(phone, text) {
+  if (!client || !phone) return;
+  const to = phoneToTwilio(phone);
+  console.log(`[Twilio] sendMessage from=${FROM} to=${to}`);
+  try {
+    const msg = await client.messages.create({ from: FROM, to, body: text });
+    console.log(`[Twilio] sent sid=${msg.sid} status=${msg.status}`);
+  } catch (err) {
+    console.error(`[Twilio] Falha ao enviar mensagem para ${phone}:`, err.message);
+  }
+}
+
+async function sendMediaUrl(phone, mediaUrl, caption) {
+  if (!client || !phone) return;
+  try {
+    await client.messages.create({ from: FROM, to: phoneToTwilio(phone), mediaUrl: [mediaUrl], body: caption || '' });
+  } catch (err) {
+    console.error(`[Twilio] Falha ao enviar mídia para ${phone}:`, err.message);
+  }
+}
+
+// Armazena arquivo em memória para servir via URL pública (uso único, TTL 10min)
+function storeTempMedia(data, mimetype, filename) {
+  const token = randomUUID();
+  mediaStore.set(token, { data, mimetype, filename });
+  setTimeout(() => mediaStore.delete(token), 10 * 60 * 1000);
+  return token;
+}
+
+function getTempMedia(token) {
+  const media = mediaStore.get(token);
+  if (media) mediaStore.delete(token);
+  return media;
+}
+
+module.exports = {
+  initializeWhatsApp,
+  getClient,
+  phoneToTwilio,
+  twilioToPhone,
+  sendMessage,
+  sendMediaUrl,
+  storeTempMedia,
+  getTempMedia,
+};
