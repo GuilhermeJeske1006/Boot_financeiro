@@ -23,10 +23,19 @@ class SubscriptionController {
     try {
       const { plan } = req.body;
       if (!plan) {
-        return res.status(400).json({ error: 'Campo "plan" é obrigatório (free, pro, business)' });
+        return res.status(400).json({ error: 'Campo "plan" é obrigatório (free, pro)' });
       }
       const subscription = await SubscriptionService.upgradePlan(req.userId, plan);
       return res.json({ message: 'Plano atualizado com sucesso', subscription });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+
+  async cancelSubscription(req, res) {
+    try {
+      const result = await SubscriptionService.cancelSubscription(req.userId);
+      return res.json(result);
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

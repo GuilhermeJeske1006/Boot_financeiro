@@ -33,6 +33,10 @@ class UserRepository {
     return User.findOne({ where: { email } });
   }
 
+  async findByStripeCustomerId(stripeCustomerId) {
+    return User.findOne({ where: { stripe_customer_id: stripeCustomerId } });
+  }
+
   async createByPhone(phone, name) {
     return this.create({ name, phone });
   }

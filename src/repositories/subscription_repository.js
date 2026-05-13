@@ -38,7 +38,6 @@ class SubscriptionRepository {
       throw new Error('Plano não encontrado');
     }
 
-    // Cancela assinatura ativa anterior
     await Subscription.update(
       { status: 'cancelled' },
       { where: { user_id: userId, status: 'active' } }
@@ -57,17 +56,12 @@ class SubscriptionRepository {
     });
   }
 
-  // Retorna o limite mensal de transações do plano ativo do usuário (-1 = ilimitado, 50 = padrão free)
   async getTransactionLimit(userId) {
     const subscription = await Subscription.findOne({
-        where: {
-            user_id: userId,
-            status: 'active',
-        },
+      where: { user_id: userId, status: 'active' },
     });
 
     const result = await Plan.findOne({ where: { id: subscription.plan_id } });
-
     return result?.max_transactions_per_month ?? 50;
   }
 
@@ -84,8 +78,8 @@ class SubscriptionRepository {
     });
   }
 
-  // Chamado pelo webhook após confirmação de pagamento
-  async upgradeByPayment(userId, planName, externalSubscriptionId, billingUrl = null) {
+  // Called by checkout.session.completed webhook
+  async upgradeByPayment(userId, planName, stripeSubscriptionId) {
     const plan = await Plan.findOne({ where: { name: planName, is_active: true } });
     if (!plan) {
       throw new Error(`Plano '${planName}' não encontrado`);
@@ -105,23 +99,34 @@ class SubscriptionRepository {
       status: 'active',
       starts_at: new Date(),
       expires_at: expiresAt,
-      payment_provider: 'abacatepay',
-      external_subscription_id: externalSubscriptionId,
-      billing_url: billingUrl,
+      payment_provider: 'stripe',
+      external_subscription_id: stripeSubscriptionId,
     });
   }
 
-  // Retorna assinaturas pagas que vencem em exatamente daysAhead dias
-  async findExpiringSoon(daysAhead = 5) {
-    const now = new Date();
-    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead);
-    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead + 1);
+  // Called by invoice.payment_succeeded webhook for monthly renewals
+  // periodEnd: Unix timestamp from invoice.period_end (avoids setMonth month-end edge cases)
+  async renewBySubscriptionId(stripeSubscriptionId, periodEnd) {
+    const subscription = await Subscription.findOne({
+      where: { external_subscription_id: stripeSubscriptionId, status: 'active' },
+    });
 
+    if (!subscription) return null;
+
+    const newExpiry = periodEnd
+      ? new Date(periodEnd * 1000)
+      : (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
+
+    return subscription.update({ expires_at: newExpiry });
+  }
+
+  // Finds active Stripe subscriptions past their expiry date (for missed webhook recovery)
+  async findExpired() {
     return Subscription.findAll({
       where: {
         status: 'active',
-        payment_provider: 'abacatepay',
-        expires_at: { [Op.between]: [from, to] },
+        payment_provider: 'stripe',
+        expires_at: { [Op.lt]: new Date() },
       },
       include: [
         { model: Plan, as: 'plan' },

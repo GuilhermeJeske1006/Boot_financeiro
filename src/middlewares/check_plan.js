@@ -1,5 +1,5 @@
 const SubscriptionService = require('../services/subscription_service');
-const AbacatePayService = require('../services/abacatepay_service');
+const PaymentGateway = require('../services/payment_gateway');
 const SubscriptionRepository = require('../repositories/subscription_repository');
 const UserRepository = require('../repositories/user_respository');
 const { sendMessage } = require('../whatsapp/client');
@@ -8,7 +8,6 @@ async function sendUpgradeWhatsApp(user, plans, links) {
   if (!user.phone) return;
 
   const proLink = links.pro || null;
-  const businessLink = links.business || null;
 
   const lines = [
     '🚫 *Limite do plano gratuito atingido!*',
@@ -25,16 +24,9 @@ async function sendUpgradeWhatsApp(user, plans, links) {
       '✅ Transações ilimitadas',
       '✅ Relatórios automáticos no WhatsApp',
       '✅ Exportação PDF e Excel',
+      '💳 Pagamento via cartão com renovação automática',
       `🔗 Assinar: ${proLink}`,
       '',
-    );
-  }
-
-  if (businessLink) {
-    lines.push(
-      `🏢 *Plano Business — R$ ${parseFloat(plans.business.price_brl).toFixed(2).replace('.', ',')}/mês*`,
-      '✅ Tudo do Pro',
-      `🔗 Assinar: ${businessLink}`,
     );
   }
 
@@ -42,12 +34,10 @@ async function sendUpgradeWhatsApp(user, plans, links) {
 }
 
 class CheckPlan {
-  // Bloqueia se usuário atingiu o limite de transações e envia opções de upgrade no WhatsApp
   async transactionLimit(req, res, next) {
     try {
       const allowed = await SubscriptionService.canCreateTransaction(req.userId);
       if (!allowed) {
-        // Envia notificação WhatsApp em background (não bloqueia a resposta HTTP)
         _notifyUpgradeAsync(req.userId).catch(() => {});
 
         return res.status(403).json({
@@ -61,7 +51,6 @@ class CheckPlan {
     }
   }
 
-  // Bloqueia se usuário não tem acesso a uma feature e envia opções de upgrade
   requireFeature(feature) {
     return async (req, res, next) => {
       try {
@@ -82,7 +71,6 @@ class CheckPlan {
   }
 }
 
-// Busca usuário e planos, gera links e envia WhatsApp
 async function _notifyUpgradeAsync(userId) {
   const [user, allPlans] = await Promise.all([
     UserRepository.findById(userId),
@@ -100,9 +88,9 @@ async function _notifyUpgradeAsync(userId) {
   await Promise.all(
     paidPlans.map(async (plan) => {
       try {
-        links[plan.name] = await AbacatePayService.createUpgradeLink(user, plan);
+        links[plan.name] = await PaymentGateway.createCheckoutSession(user, plan);
       } catch (_) {
-        // Não falha silenciosamente — apenas não envia o link daquele plano
+        // Skip if checkout session creation fails
       }
     })
   );

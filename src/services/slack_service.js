@@ -113,7 +113,7 @@ class SlackService {
     const webhookUrl = process.env.SLACK_WEBHOOK_SUBSCRIPTIONS;
     if (!webhookUrl) return;
 
-    const planLabels = { pro: 'Pro :rocket:', business: 'Business :office:' };
+    const planLabels = { pro: 'Pro :rocket:' };
     const label = planLabels[info.planName] || info.planName;
 
     const payload = {

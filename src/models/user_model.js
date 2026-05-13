@@ -34,6 +34,10 @@ class User extends Model {
           type: DataTypes.STRING(14),
           allowNull: true,
         },
+        stripe_customer_id: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
         remember_token: {
           type: DataTypes.STRING,
           allowNull: true,

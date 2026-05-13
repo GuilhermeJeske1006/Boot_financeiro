@@ -33,6 +33,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Stripe webhook needs raw Buffer for signature verification — must come before express.json()
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '10kb' }));
 
 app.use('/whatsapp', whatsappRoutes);

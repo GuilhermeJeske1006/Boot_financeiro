@@ -23,17 +23,6 @@ const defaultPlans = [
     category_budgets: true,
     ai_chat: true,
   },
-  {
-    name: 'business',
-    display_name: 'Business',
-    price_brl: 49.90,
-    max_transactions_per_month: -1,
-    whatsapp_reports: true,
-    pdf_export: true,
-    recurring_transactions: true,
-    category_budgets: true,
-    ai_chat: true,
-  },
 ];
 
 async function seedPlans() {

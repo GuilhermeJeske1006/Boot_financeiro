@@ -5,7 +5,7 @@ class MainMenu {
     const subscription = await SubscriptionRepository.findActiveByUserId(userId);
 
     const planName = subscription?.plan?.name || 'free';
-    const planLabel = planName === 'free' ? '🆓 Grátis' : planName === 'pro' ? '⭐ Pro' : '🏆 Business';
+    const planLabel = planName === 'free' ? '🆓 Grátis' : '⭐ Pro';
     const hasRecurring = !!subscription?.plan?.recurring_transactions;
     const hasExport = !!subscription?.plan?.pdf_export;
     const hasBudgets = !!subscription?.plan?.category_budgets;

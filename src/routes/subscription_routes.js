@@ -7,5 +7,6 @@ const router = express.Router();
 router.get('/plans', SubscriptionController.getPlans);
 router.get('/my', AuthMiddleware.verifyToken, SubscriptionController.getMySubscription);
 router.patch('/upgrade', AuthMiddleware.verifyToken, SubscriptionController.upgradePlan);
+router.delete('/cancel', AuthMiddleware.verifyToken, SubscriptionController.cancelSubscription);
 
 module.exports = router;

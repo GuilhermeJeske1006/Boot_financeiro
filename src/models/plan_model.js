@@ -10,7 +10,7 @@ class Plan extends Model {
           autoIncrement: true,
         },
         name: {
-          type: DataTypes.ENUM('free', 'pro', 'business'),
+          type: DataTypes.ENUM('free', 'pro'),
           allowNull: false,
           unique: true,
         },

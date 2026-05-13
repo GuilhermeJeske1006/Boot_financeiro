@@ -1,9 +1,8 @@
 const SubscriptionRepository = require('../../repositories/subscription_repository');
-const AbacatePayService = require('../../services/abacatepay_service');
+const PaymentGateway = require('../../services/payment_gateway');
 const UserRepository = require('../../repositories/user_respository');
 
 class PlanMenu {
-  // Monta e retorna a tela de "Meu Plano"
   async show(userId) {
     const [subscription, allPlans] = await Promise.all([
       SubscriptionRepository.findActiveByUserId(userId),
@@ -14,8 +13,7 @@ class PlanMenu {
     const planName = currentPlan?.name || 'free';
     const displayName = currentPlan?.display_name || 'Grátis';
 
-    let msg = `💳 *Meu Plano*\n`;
-    msg += `\n`;
+    let msg = `💳 *Meu Plano*\n\n`;
     msg += `📦 Plano atual: *${displayName}*\n`;
 
     if (planName === 'free') {
@@ -27,48 +25,53 @@ class PlanMenu {
     } else {
       if (subscription?.expires_at) {
         const dateStr = new Date(subscription.expires_at).toLocaleDateString('pt-BR');
-        msg += `📅 Válido até: *${dateStr}*\n\n`;
+        msg += `📅 Válido até: *${dateStr}* (renovação automática)\n\n`;
       }
     }
 
-    // Planos disponíveis para upgrade com base no plano atual
     const upgradePlans = allPlans.filter((p) => {
-      if (planName === 'free') return p.name !== 'free';
-      if (planName === 'pro') return p.name === 'business';
-      return false; // business não tem upgrade
+      if (planName === 'free') return p.name === 'pro';
+      return false;
     });
 
+    const showManage = planName !== 'free';
     const showCancel = planName !== 'free';
-    const cancelOptionNumber = upgradePlans.length + 1;
+    let optionIndex = 0;
 
     if (upgradePlans.length > 0) {
       msg += `🚀 *Opções de upgrade:*\n\n`;
       upgradePlans.forEach((plan, index) => {
+        optionIndex = index + 1;
         const price = parseFloat(plan.price_brl).toFixed(2).replace('.', ',');
-        msg += `*${index + 1}* ➜ Plano *${plan.display_name}* — R$ ${price}/mês\n`;
+        msg += `*${optionIndex}* ➜ Plano *${plan.display_name}* — R$ ${price}/mês\n`;
 
         if (plan.name === 'pro') {
           msg += `    ✅ Transações ilimitadas\n`;
           msg += `    ✅ Relatórios WhatsApp automáticos\n`;
           msg += `    ✅ Export PDF e Excel\n\n`;
-        } else if (plan.name === 'business') {
-          msg += `    ✅ Tudo do Pro\n`;
-          msg += `    ✅ Empresas ilimitadas\n`;
-          msg += `    ✅ Multi-usuário por empresa\n\n`;
         }
       });
     } else {
       msg += `🏆 *Você já possui o melhor plano disponível!*\n\n`;
     }
 
+    let manageOptionNumber = null;
+    let cancelOptionNumber = null;
+
+    if (showManage) {
+      manageOptionNumber = ++optionIndex;
+      msg += `*${manageOptionNumber}* ➜ Gerenciar assinatura / atualizar cartão 💳\n`;
+    }
+
     if (showCancel) {
+      cancelOptionNumber = ++optionIndex;
       msg += `*${cancelOptionNumber}* ➜ Cancelar plano ❌\n`;
     }
 
     msg += `*0* ➜ Voltar ao menu\n`;
     msg += `\n_Digite o número da opção_ ✍️`;
 
-    return { message: msg, upgradePlans, showCancel, cancelOptionNumber };
+    return { message: msg, upgradePlans, showManage, showCancel, manageOptionNumber, cancelOptionNumber };
   }
 
   async handleStep(state, input, userId) {
@@ -76,33 +79,32 @@ class PlanMenu {
       return { done: true, message: '' };
     }
 
-    // Etapa: link gerado, aguardando retorno ao menu
     if (state.data.awaitingReturn) {
       return { done: true, message: '' };
     }
 
-    // Etapa: aguardando confirmação de cancelamento
     if (state.data.awaitingCancelConfirm) {
       return await this._handleCancelConfirm(state, input, userId);
     }
 
-    // Etapa: aguardando e-mail do usuário
     if (state.data.awaitingEmail) {
       return await this._handleEmailStep(state, input, userId);
     }
 
-    // Etapa: aguardando CPF/CNPJ do usuário
-    if (state.data.awaitingCpf) {
-      return await this._handleCpfStep(state, input, userId);
+    const {
+      upgradePlans = [],
+      showManage = false,
+      showCancel = false,
+      manageOptionNumber,
+      cancelOptionNumber,
+    } = state.data;
+
+    // Manage subscription (update card, view invoices)
+    if (showManage && input === String(manageOptionNumber)) {
+      return await this._generatePortalLink(userId);
     }
 
-    // Etapa 1: seleção do plano/ação
-    const upgradePlans = state.data.upgradePlans || [];
-    const showCancel = state.data.showCancel ?? false;
-    const cancelOptionNumber = state.data.cancelOptionNumber ?? upgradePlans.length + 1;
-    const index = parseInt(input) - 1;
-
-    // Verificar se é opção de cancelamento
+    // Cancel confirmation
     if (showCancel && input === String(cancelOptionNumber)) {
       return {
         newState: { ...state, data: { ...state.data, awaitingCancelConfirm: true } },
@@ -116,11 +118,13 @@ class PlanMenu {
       };
     }
 
+    const index = parseInt(input) - 1;
+
     if (isNaN(index) || index < 0 || index >= upgradePlans.length) {
-      const { message, upgradePlans: plans, showCancel: sc, cancelOptionNumber: cn } = await this.show(userId);
+      const result = await this.show(userId);
       return {
-        newState: { ...state, data: { upgradePlans: plans, showCancel: sc, cancelOptionNumber: cn } },
-        message: `⚠️ Opção inválida.\n\n${message}`,
+        newState: { ...state, data: result },
+        message: `⚠️ Opção inválida.\n\n${result.message}`,
       };
     }
 
@@ -131,13 +135,6 @@ class PlanMenu {
       return {
         newState: { ...state, data: { ...state.data, selectedPlan, awaitingEmail: true } },
         message: `📧 Para gerar o link de pagamento, precisamos do seu *e-mail*.\n\nDigite seu e-mail:`,
-      };
-    }
-
-    if (!user.tax_id) {
-      return {
-        newState: { ...state, data: { ...state.data, selectedPlan, awaitingCpf: true } },
-        message: `📋 Para gerar o link de pagamento, precisamos do seu *CPF ou CNPJ*.\n\nDigite apenas os números:`,
       };
     }
 
@@ -166,35 +163,24 @@ class PlanMenu {
     await UserRepository.update(userId, { email });
     const user = await UserRepository.findById(userId);
 
-    if (!user.tax_id) {
-      return {
-        newState: { ...state, data: { ...state.data, awaitingEmail: false, awaitingCpf: true } },
-        message: `📋 Para gerar o link de pagamento, precisamos do seu *CPF ou CNPJ*.\n\nDigite apenas os números:`,
-      };
-    }
-
-    return await this._generatePaymentLink(state, user, state.data.selectedPlan);
-  }
-
-  async _handleCpfStep(state, input, userId) {
-    const digits = input.replace(/\D/g, '');
-
-    if (digits.length !== 11 && digits.length !== 14) {
-      return {
-        newState: state,
-        message: `⚠️ CPF ou CNPJ inválido.\n\nDigite apenas os números:\n• CPF: 11 dígitos\n• CNPJ: 14 dígitos`,
-      };
-    }
-
-    await UserRepository.update(userId, { tax_id: digits });
-    const user = await UserRepository.findById(userId);
-
     return await this._generatePaymentLink(state, user, state.data.selectedPlan);
   }
 
   async _handleCancelConfirm(state, input, userId) {
     if (input === '1') {
       try {
+        const subscription = await SubscriptionRepository.findActiveByUserId(userId);
+
+        if (subscription?.payment_provider === 'stripe' && subscription?.external_subscription_id) {
+          // Stripe fires customer.subscription.deleted → webhook handles local downgrade
+          await PaymentGateway.cancelSubscription(subscription.external_subscription_id);
+          return {
+            done: true,
+            message: `✅ *Cancelamento solicitado!*\n\nSua assinatura será encerrada e você receberá uma confirmação em instantes.`,
+          };
+        }
+
+        // Manual subscription — cancel locally
         await SubscriptionRepository.cancelToFreePlan(userId);
         return {
           done: true,
@@ -209,28 +195,32 @@ class PlanMenu {
       }
     }
 
-    // Qualquer outra opção volta ao menu de planos
-    const { message, upgradePlans, showCancel, cancelOptionNumber } = await this.show(userId);
+    const result = await this.show(userId);
     return {
-      newState: { ...state, data: { upgradePlans, showCancel, cancelOptionNumber } },
-      message,
+      newState: { ...state, data: result },
+      message: result.message,
     };
   }
 
   async _generatePaymentLink(state, user, selectedPlan) {
     try {
-      const link = await AbacatePayService.createUpgradeLink(user, selectedPlan);
+      const url = await PaymentGateway.createCheckoutSession(user, selectedPlan);
       const price = parseFloat(selectedPlan.price_brl).toFixed(2).replace('.', ',');
-      const msg = [
+      const fullMsg = [
         `🔗 *Link de pagamento gerado!*`,
         ``,
         `📦 Plano *${selectedPlan.display_name}* — R$ ${price}/mês`,
+        `💳 Pagamento via cartão de crédito com renovação automática`,
         ``,
-        link,
+        url,
         ``,
         `✅ Após o pagamento, seu plano será ativado automaticamente e você receberá uma confirmação aqui no WhatsApp!`,
+        ``,
+        `*0* ➜ Voltar ao menu`,
+        ``,
+        `_Digite 0 para continuar_ ✍️`,
       ].join('\n');
-      const fullMsg = msg + `\n\n*0* ➜ Voltar ao menu\n\n_Digite 0 para continuar_ ✍️`;
+
       return {
         newState: { ...state, data: { awaitingReturn: true } },
         message: fullMsg,
@@ -240,6 +230,37 @@ class PlanMenu {
       return {
         newState: state,
         message: `❌ Não foi possível gerar o link de pagamento. Tente novamente em instantes.`,
+      };
+    }
+  }
+
+  async _generatePortalLink(userId) {
+    try {
+      const user = await UserRepository.findById(userId);
+      if (!user?.stripe_customer_id) {
+        return {
+          done: true,
+          message: `ℹ️ Nenhuma assinatura ativa encontrada para gerenciar.`,
+        };
+      }
+
+      const url = await PaymentGateway.createPortalSession(user.stripe_customer_id);
+      return {
+        newState: null,
+        done: true,
+        message: [
+          `🔗 *Portal de assinatura*`,
+          ``,
+          `Acesse o link abaixo para gerenciar sua assinatura, atualizar o cartão ou ver faturas:`,
+          ``,
+          url,
+        ].join('\n'),
+      };
+    } catch (error) {
+      console.error('Erro ao gerar portal:', error);
+      return {
+        done: true,
+        message: `❌ Não foi possível acessar o portal. Tente novamente em instantes.`,
       };
     }
   }
