@@ -12,6 +12,7 @@ const LLMMenu = require('./menus/llm_menu');
 const RecentTransactionsMenu = require('./menus/recent_transactions_menu');
 const SubscriptionService = require('../services/subscription_service');
 const AiInterpreter = require('./services/ai_interpreter');
+const AgentOrchestrator = require('./ai/agent_orchestrator');
 
 class SessionManager {
   constructor() {
@@ -49,6 +50,7 @@ class SessionManager {
       }
     }
   }
+
 
   _buildModeQuestion() {
     return (
@@ -167,16 +169,25 @@ class SessionManager {
       return this._buildModeQuestion();
     }
 
-    const notUnderstood = (
-      `🤖 Não entendi sua mensagem. Tente algo como:\n\n` +
-      `• _"Gastei 80 reais em combustível"_\n` +
-      `• _"Recebi 1500 de freelance"_\n` +
-      `• _"Qual meu saldo?"_\n\n` +
-      `_Digite *menu* para usar o bot com menus ou *sair* para encerrar._`
-    );
+    if (input.toLowerCase() === 'limpar histórico' || input.toLowerCase() === 'limpar historico') {
+      await AgentOrchestrator.clearHistory(userId);
+      return '🧹 Histórico de conversa apagado. Podemos começar do zero!';
+    }
 
-    const response = await AiInterpreter.interpret(userId, input);
-    return response || notUnderstood;
+    const response = await AgentOrchestrator.process(userId, input);
+
+    // AgentOrchestrator retorna objeto com __media quando gera PDF/Excel
+    if (response && typeof response === 'object' && response.__media) {
+      return { media: response.__media, text: response.text };
+    }
+
+    return response || (
+      `🤖 Não entendi. Tente:\n\n` +
+      `• _"Gastei 80 reais em combustível"_\n` +
+      `• _"Qual meu saldo?"_\n` +
+      `• _"Relatório de maio"_\n\n` +
+      `_Digite *menu* para o bot com menus._`
+    );
   }
 
   async _handleMainMenu(phone, userId, input) {

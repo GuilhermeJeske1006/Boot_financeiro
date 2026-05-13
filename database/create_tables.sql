@@ -10,10 +10,11 @@ DO $$ BEGIN CREATE TYPE user_type_enum           AS ENUM ('PF', 'PJ');          
 DO $$ BEGIN CREATE TYPE transaction_type_enum    AS ENUM ('income', 'expense');                     EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE category_type_enum       AS ENUM ('income', 'expense', 'both');             EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE email_status_enum        AS ENUM ('pending', 'sent', 'failed');             EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE plan_name_enum           AS ENUM ('free', 'pro', 'business');               EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE plan_name_enum           AS ENUM ('free', 'pro');                           EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE subscription_status_enum AS ENUM ('active', 'cancelled', 'expired', 'trial'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE payment_provider_enum    AS ENUM ('manual', 'stripe', 'abacatepay');        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE frequency_enum           AS ENUM ('daily', 'weekly', 'monthly', 'yearly');  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE ai_role_enum             AS ENUM ('user', 'assistant');                     EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── Tabelas ─────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,10 @@ CREATE TABLE IF NOT EXISTS users (
     password       VARCHAR(255)     NULL,
     user_type      user_type_enum   NOT NULL DEFAULT 'PF',
     tax_id         VARCHAR(18)      NULL,
+    stripe_customer_id VARCHAR(255) NULL,
     remember_token VARCHAR(255)     NULL,
+    ai_enabled     BOOLEAN          NOT NULL DEFAULT TRUE,
+    ai_context_length INTEGER       NOT NULL DEFAULT 0,
     created_at     TIMESTAMP        NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMP        NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),
@@ -123,21 +127,19 @@ CREATE TABLE IF NOT EXISTS email_queue (
 
 -- 8. plans (sem dependências)
 CREATE TABLE IF NOT EXISTS plans (
-    id                          SERIAL         NOT NULL,
-    name                        plan_name_enum NOT NULL,
-    display_name                VARCHAR(255)   NOT NULL,
-    price_brl                   DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    max_transactions_per_month  INTEGER        NOT NULL DEFAULT 50,
-    max_companies               INTEGER        NOT NULL DEFAULT 1,
-    whatsapp_reports            BOOLEAN        NOT NULL DEFAULT FALSE,
-    pdf_export                  BOOLEAN        NOT NULL DEFAULT FALSE,
-    multi_user                  BOOLEAN        NOT NULL DEFAULT FALSE,
-    recurring_transactions      BOOLEAN        NOT NULL DEFAULT FALSE,
-    category_budgets            BOOLEAN        NOT NULL DEFAULT FALSE,
-    ai_chat                     BOOLEAN        NOT NULL DEFAULT FALSE,
-    is_active                   BOOLEAN        NOT NULL DEFAULT TRUE,
-    created_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
-    updated_at                  TIMESTAMP      NOT NULL DEFAULT NOW(),
+    id                         SERIAL         NOT NULL,
+    name                       plan_name_enum NOT NULL,
+    display_name               VARCHAR(255)   NOT NULL,
+    price_brl                  DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    max_transactions_per_month INTEGER        NOT NULL DEFAULT 50,
+    whatsapp_reports           BOOLEAN        NOT NULL DEFAULT FALSE,
+    pdf_export                 BOOLEAN        NOT NULL DEFAULT FALSE,
+    recurring_transactions     BOOLEAN        NOT NULL DEFAULT FALSE,
+    category_budgets           BOOLEAN        NOT NULL DEFAULT FALSE,
+    ai_chat                    BOOLEAN        NOT NULL DEFAULT FALSE,
+    is_active                  BOOLEAN        NOT NULL DEFAULT TRUE,
+    created_at                 TIMESTAMP      NOT NULL DEFAULT NOW(),
+    updated_at                 TIMESTAMP      NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),
     UNIQUE (name)
 );
@@ -152,7 +154,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     expires_at               TIMESTAMP                NULL,
     payment_provider         payment_provider_enum    NOT NULL DEFAULT 'manual',
     external_subscription_id VARCHAR(255)             NULL,
-    billing_url              TEXT                     NULL,
     created_at               TIMESTAMP                NOT NULL DEFAULT NOW(),
     updated_at               TIMESTAMP                NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),
@@ -202,9 +203,6 @@ CREATE TABLE IF NOT EXISTS category_budgets (
 
 CREATE INDEX IF NOT EXISTS idx_category_budgets_user_month ON category_budgets (user_id, month);
 
--- migration: adiciona coluna category_budgets ao plans (seguro para banco existente)
-ALTER TABLE plans ADD COLUMN IF NOT EXISTS category_budgets BOOLEAN NOT NULL DEFAULT FALSE;
-
 -- 12. goals (depende de users)
 DO $$ BEGIN CREATE TYPE goal_status_enum AS ENUM ('active', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -239,30 +237,64 @@ CREATE TABLE IF NOT EXISTS goal_contributions (
 
 CREATE INDEX IF NOT EXISTS idx_goal_contributions_goal ON goal_contributions (goal_id);
 
+-- 14. ai_conversations (depende de users)
+CREATE TABLE IF NOT EXISTS ai_conversations (
+    id         SERIAL       NOT NULL,
+    user_id    INTEGER      NOT NULL,
+    role       ai_role_enum NOT NULL,
+    content    TEXT         NOT NULL,
+    created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_ai_conversations_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_created ON ai_conversations (user_id, created_at);
+
+-- 15. ai_actions_log (depende de users)
+CREATE TABLE IF NOT EXISTS ai_actions_log (
+    id          SERIAL        NOT NULL,
+    user_id     INTEGER       NOT NULL,
+    tool_name   VARCHAR(100)  NOT NULL,
+    input       JSONB         NULL,
+    result      JSONB         NULL,
+    confirmed   BOOLEAN       NOT NULL DEFAULT FALSE,
+    executed_at TIMESTAMP     NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP     NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_ai_actions_log_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_actions_log_user_executed ON ai_actions_log (user_id, executed_at);
+CREATE INDEX IF NOT EXISTS idx_ai_actions_log_tool          ON ai_actions_log (tool_name);
+
 -- ============================================================
 -- Seed: planos padrão
 -- ============================================================
 
-INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, max_companies, whatsapp_reports, pdf_export, multi_user, recurring_transactions, category_budgets, ai_chat)
+INSERT INTO plans (name, display_name, price_brl, max_transactions_per_month, whatsapp_reports, pdf_export, recurring_transactions, category_budgets, ai_chat)
 VALUES
-    ('free',     'Grátis',    0.00,  50,  1, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
-    ('pro',      'Pro',       29.90, -1,  5, TRUE,  TRUE,  FALSE, TRUE,  TRUE,  TRUE),
-    ('business', 'Business',  79.90, -1, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
+    ('free', 'Grátis', 0.00, 30, FALSE, FALSE, FALSE, FALSE, FALSE),
+    ('pro',  'Pro',   19.90, -1, TRUE,  TRUE,  TRUE,  TRUE,  TRUE)
 ON CONFLICT (name) DO UPDATE SET
     display_name           = EXCLUDED.display_name,
     price_brl              = EXCLUDED.price_brl,
     whatsapp_reports       = EXCLUDED.whatsapp_reports,
     pdf_export             = EXCLUDED.pdf_export,
-    multi_user             = EXCLUDED.multi_user,
     recurring_transactions = EXCLUDED.recurring_transactions,
     category_budgets       = EXCLUDED.category_budgets,
     ai_chat                = EXCLUDED.ai_chat;
 
--- ─── Migrations de colunas ───────────────────────────────────────────────────
-ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN NOT NULL DEFAULT true;
+-- ─── Ajustes/migrations consolidadas (seguro para banco existente) ───────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context_length INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions DROP COLUMN IF EXISTS billing_url;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS category_budgets BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_chat BOOLEAN NOT NULL DEFAULT FALSE;
-UPDATE plans SET ai_chat = TRUE WHERE name IN ('pro', 'business');
+ALTER TABLE plans DROP COLUMN IF EXISTS max_companies;
+ALTER TABLE plans DROP COLUMN IF EXISTS multi_user;
 
 -- Atribui plano free a todos os usuários que ainda não têm assinatura
 INSERT INTO subscriptions (user_id, plan_id, status, starts_at, expires_at, payment_provider)

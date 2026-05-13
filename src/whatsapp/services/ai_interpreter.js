@@ -126,6 +126,10 @@ class AiInterpreter {
     }
   }
 
+  async transcribeAudio(audioBase64, mimeType) {
+    return this._transcribeAudio(audioBase64, mimeType);
+  }
+
   async _transcribeAudio(audioBase64, mimeType) {
     const extMap = {
       'audio/ogg': 'ogg', 'audio/mp4': 'mp4', 'audio/wav': 'wav',

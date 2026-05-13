@@ -12,6 +12,8 @@ const RecurringTransaction = require('./recurring_transaction_model');
 const CategoryBudget = require('./category_budget_model');
 const Goal = require('./goal_model');
 const GoalContribution = require('./goal_contribution_model');
+const AiConversation = require('./ai_conversation_model');
+const AiActionsLog = require('./ai_actions_log_model');
 
 User.init(database.connection);
 Category.init(database.connection);
@@ -25,6 +27,8 @@ RecurringTransaction.init(database.connection);
 CategoryBudget.init(database.connection);
 Goal.init(database.connection);
 GoalContribution.init(database.connection);
+AiConversation.init(database.connection);
+AiActionsLog.init(database.connection);
 
 // associations
 Category.hasMany(Transaction, { foreignKey: 'category_id', as: 'transactions' });
@@ -66,6 +70,12 @@ Goal.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Goal.hasMany(GoalContribution, { foreignKey: 'goal_id', as: 'contributions' });
 GoalContribution.belongsTo(Goal, { foreignKey: 'goal_id', as: 'goal' });
 
+User.hasMany(AiConversation, { foreignKey: 'user_id', as: 'aiConversations' });
+AiConversation.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+User.hasMany(AiActionsLog, { foreignKey: 'user_id', as: 'aiActionsLogs' });
+AiActionsLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 module.exports = {
   User,
   Category,
@@ -79,4 +89,6 @@ module.exports = {
   CategoryBudget,
   Goal,
   GoalContribution,
+  AiConversation,
+  AiActionsLog,
 };

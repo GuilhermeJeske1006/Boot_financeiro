@@ -3,6 +3,7 @@ const UserRepository = require('../repositories/user_respository');
 const RegistrationService = require('./services/registration_service');
 const ShortcutHandler = require('./services/shortcut_handler');
 const AiInterpreter = require('./services/ai_interpreter');
+const AgentOrchestrator = require('./ai/agent_orchestrator');
 const { twilioToPhone, sendMessage, sendMediaUrl, storeTempMedia } = require('./client');
 const RateLimiter = require('./rate_limiter');
 
@@ -52,8 +53,23 @@ async function handleWebhook(req, res) {
       const audioResponse = await fetch(MediaUrl0, { headers: { Authorization: authHeader } });
       const buffer = await audioResponse.arrayBuffer();
       const audioBase64 = Buffer.from(buffer).toString('base64');
-      const reply = await AiInterpreter.interpretAudio(user.id, audioBase64, MediaContentType0);
-      if (reply) await sendMessage(phone, reply);
+
+      const transcription = await AiInterpreter.transcribeAudio(audioBase64, MediaContentType0);
+      if (!transcription) {
+        await sendMessage(phone, '⚠️ Não consegui transcrever o áudio. Tente enviar como texto.');
+        return;
+      }
+
+      console.log(`[WHATSAPP] audio transcription userId=${user.id}: "${transcription}"`);
+      const audioReply = await AgentOrchestrator.process(user.id, transcription);
+
+      if (audioReply && typeof audioReply === 'object' && audioReply.__media) {
+        const token = storeTempMedia(audioReply.__media.data, audioReply.__media.mimetype, audioReply.__media.filename);
+        const mediaUrl = `${process.env.BASE_URL}/whatsapp/media/${token}`;
+        await sendMediaUrl(phone, mediaUrl, audioReply.text || '');
+      } else if (audioReply) {
+        await sendMessage(phone, audioReply);
+      }
       return;
     }
 
