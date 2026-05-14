@@ -39,7 +39,7 @@ class BudgetMenu {
         const pct = limit > 0 ? (spent / limit) * 100 : 0;
         const bar = this._progressBar(pct);
         const statusEmoji = pct >= 100 ? '🚨' : pct >= 80 ? '⚠️' : '✅';
-        msg += `${statusEmoji} *${budget.category.name}*\n`;
+        msg += `${statusEmoji} *${budget.category?.name || '—'}*\n`;
         msg += `   ${bar} ${pct.toFixed(0)}%\n`;
         msg += `   R$ ${spent.toFixed(2)} / R$ ${limit.toFixed(2)}\n\n`;
       });
@@ -101,7 +101,7 @@ class BudgetMenu {
       const budgets = state.data.budgets;
       let msg = `🗑️ Qual orçamento deseja remover?\n\n`;
       budgets.forEach((b, i) => {
-        msg += `  ❌ *${i + 1}* ➜ ${b.category.name} (R$ ${parseFloat(b.amount).toFixed(2)})\n`;
+        msg += `  ❌ *${i + 1}* ➜ ${b.category?.name || '—'} (R$ ${parseFloat(b.amount).toFixed(2)})\n`;
       });
       msg += `\n_Digite o número_ ✍️\n`;
       msg += `\n🔙 *0* ➜ Voltar`;
@@ -154,10 +154,10 @@ class BudgetMenu {
         newState: {
           ...state,
           step: 3,
-          data: { ...state.data, budget_id: selected.id, budget_category_name: selected.category.name },
+          data: { ...state.data, budget_id: selected.id, budget_category_name: selected.category?.name || '—' },
         },
         message: (
-          `Tem certeza que deseja remover o orçamento de *${selected.category.name}*?\n\n` +
+          `Tem certeza que deseja remover o orçamento de *${selected.category?.name || '—'}*?\n\n` +
           `✅ *S* para confirmar\n❌ *N* para cancelar`
         ),
       };
