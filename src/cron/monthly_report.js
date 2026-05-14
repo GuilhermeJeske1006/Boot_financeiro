@@ -5,15 +5,14 @@ const SubscriptionService = require('../services/subscription_service');
 const { sendMessage } = require('../whatsapp/client');
 
 function startMonthlyCron() {
-  // executa às 20:00 nos dias 28-31 de cada mês
-  // verifica se é realmente o último dia do mês antes de enviar
+  let running = false;
+
   cron.schedule('0 20 28-31 * *', async () => {
     const now = new Date();
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-
-    if (now.getDate() !== lastDayOfMonth) {
-      return;
-    }
+    if (now.getDate() !== lastDayOfMonth) return;
+    if (running) return;
+    running = true;
 
     try {
       const year = now.getFullYear();
@@ -21,24 +20,28 @@ function startMonthlyCron() {
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
 
-      // envia relatório para cada usuário que tem telefone cadastrado
       const users = await UserRepository.findAll();
-      for (const user of users) {
-        if (!user.phone) continue;
-        try {
-          const hasFeature = await SubscriptionService.hasFeature(user.id, 'whatsapp_reports');
-          if (!hasFeature) continue;
+      await Promise.allSettled(
+        users
+          .filter(u => u.phone)
+          .map(async user => {
+            try {
+              const hasFeature = await SubscriptionService.hasFeature(user.id, 'whatsapp_reports');
+              if (!hasFeature) return;
 
-          const prevTotals = await ReportService.getMonthTotals(prevYear, prevMonth, user.id);
-          const report = await ReportService.generateMonthlyReport(year, month, user.id, prevTotals);
-          await sendMessage(user.phone, report);
-          console.log(`Relatório mensal ${month}/${year} enviado para ${user.phone}.`);
-        } catch (err) {
-          console.error(`Falha ao enviar relatório para ${user.phone}:`, err);
-        }
-      }
+              const prevTotals = await ReportService.getMonthTotals(prevYear, prevMonth, user.id);
+              const report = await ReportService.generateMonthlyReport(year, month, user.id, prevTotals);
+              await sendMessage(user.phone, report);
+              console.log(`Relatório mensal ${month}/${year} enviado para ${user.phone}.`);
+            } catch (err) {
+              console.error(`Falha ao enviar relatório para ${user.phone}:`, err);
+            }
+          })
+      );
     } catch (error) {
       console.error('Falha ao enviar relatórios mensais:', error);
+    } finally {
+      running = false;
     }
   });
 

@@ -5,3 +5,4 @@ node_modules/
 
 # Arquivos de ambiente — apenas .env.example é commitado
 .env
+.env.production
