@@ -309,3 +309,5 @@ FROM users u
 WHERE NOT EXISTS (
     SELECT 1 FROM subscriptions s WHERE s.user_id = u.id
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_override BOOLEAN NOT NULL DEFAULT FALSE;

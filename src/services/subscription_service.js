@@ -1,4 +1,5 @@
 const SubscriptionRepository = require('../repositories/subscription_repository');
+const UserRepository = require('../repositories/user_respository');
 const PaymentGateway = require('./payment_gateway');
 
 class SubscriptionService {
@@ -28,6 +29,9 @@ class SubscriptionService {
 
   // Verifica se o usuário pode criar mais uma transação no mês
   async canCreateTransaction(userId) {
+    const user = await UserRepository.findById(userId);
+    if (user?.pro_override) return true;
+
     const limit = await SubscriptionRepository.getTransactionLimit(userId);
     if (limit === -1) return true; // ilimitado
 
@@ -37,6 +41,9 @@ class SubscriptionService {
 
   // Verifica se o usuário tem acesso a uma feature do plano
   async hasFeature(userId, feature) {
+    const user = await UserRepository.findById(userId);
+    if (user?.pro_override) return true;
+
     const subscription = await SubscriptionRepository.findActiveByUserId(userId);
     if (!subscription) return false;
     return !!subscription.plan[feature];

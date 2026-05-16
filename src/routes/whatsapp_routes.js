@@ -5,7 +5,10 @@ const { getTempMedia } = require('../whatsapp/client');
 const router = express.Router();
 
 // Twilio envia form-urlencoded, não JSON
-router.post('/webhook', express.urlencoded({ extended: false }), handleWebhook);
+router.post('/webhook', express.urlencoded({ extended: false }), (req, res, next) => {
+  console.log('[WEBHOOK] hit - body keys:', Object.keys(req.body || {}), 'From:', req.body?.From);
+  next();
+}, handleWebhook);
 
 // Servir arquivos temporários (PDF, Excel) para Twilio buscar e entregar ao usuário
 router.get('/media/:token', (req, res) => {

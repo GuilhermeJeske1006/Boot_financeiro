@@ -40,8 +40,11 @@ async function sendMessage(phone, text) {
 
 async function sendMediaUrl(phone, mediaUrl, caption) {
   if (!client || !phone) return;
+  const to = phoneToTwilio(phone);
+  console.log(`[Twilio] sendMediaUrl from=${FROM} to=${to} url=${mediaUrl}`);
   try {
-    await client.messages.create({ from: FROM, to: phoneToTwilio(phone), mediaUrl: [mediaUrl], body: caption || '' });
+    const msg = await client.messages.create({ from: FROM, to, mediaUrl: [mediaUrl], body: caption || '' });
+    console.log(`[Twilio] media sent sid=${msg.sid} status=${msg.status}`);
   } catch (err) {
     console.error(`[Twilio] Falha ao enviar mídia para ${phone}:`, err.message);
   }

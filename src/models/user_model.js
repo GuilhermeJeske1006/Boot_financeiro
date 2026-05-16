@@ -42,6 +42,11 @@ class User extends Model {
           type: DataTypes.STRING,
           allowNull: true,
         },
+        pro_override: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
+        },
         ai_enabled: {
           type: DataTypes.BOOLEAN,
           allowNull: false,
