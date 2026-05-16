@@ -16,7 +16,14 @@ class StripeGateway {
   }
 
   async getOrCreateCustomer(user) {
-    if (user.stripe_customer_id) return user.stripe_customer_id;
+    if (user.stripe_customer_id) {
+      try {
+        const existing = await this.client.customers.retrieve(user.stripe_customer_id);
+        if (!existing.deleted) return existing.id;
+      } catch (_) {
+        // customer not found in Stripe — fall through to create
+      }
+    }
 
     const customer = await this.client.customers.create({
       email: user.email,

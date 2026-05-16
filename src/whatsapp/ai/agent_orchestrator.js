@@ -74,7 +74,7 @@ class AgentOrchestrator {
       SubscriptionService.getMySubscription(userId).catch(() => null),
     ]);
 
-    const isPro = sub?.plan?.name !== 'free';
+    const isPro = sub?.plan?.name !== 'free' || !!user?.pro_override;
     const today = new Date().toISOString().split('T')[0];
     const systemPrompt = buildSystemPrompt(today, isPro, user?.name);
 

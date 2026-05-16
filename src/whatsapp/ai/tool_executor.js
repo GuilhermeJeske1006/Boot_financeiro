@@ -522,24 +522,27 @@ class ToolExecutor {
   // ─── Perfil e Plano ───────────────────────────────────────────────────────
 
   async _getSubscriptionInfo(userId) {
-    const sub = await SubscriptionRepository.findActiveByUserId(userId);
+    const [sub, user] = await Promise.all([
+      SubscriptionRepository.findActiveByUserId(userId),
+      UserRepository.findById(userId),
+    ]);
     if (!sub) return { error: 'Nenhuma assinatura encontrada.' };
 
     const plan = sub.plan;
-    const isPro = plan?.name !== 'free';
+    const isPro = plan?.name !== 'free' || !!user?.pro_override;
     const features = [];
-    if (plan?.recurring_transactions) features.push('Transações Recorrentes');
-    if (plan?.category_budgets) features.push('Orçamentos por Categoria');
-    if (plan?.pdf_export) features.push('Exportação PDF/Excel');
-    if (plan?.whatsapp_reports) features.push('Relatórios WhatsApp');
-    if (plan?.ai_chat) features.push('Chat com IA');
+    if (isPro || plan?.recurring_transactions) features.push('Transações Recorrentes');
+    if (isPro || plan?.category_budgets) features.push('Orçamentos por Categoria');
+    if (isPro || plan?.pdf_export) features.push('Exportação PDF/Excel');
+    if (isPro || plan?.whatsapp_reports) features.push('Relatórios WhatsApp');
+    if (isPro || plan?.ai_chat) features.push('Chat com IA');
 
-    const limit = plan?.max_transactions_per_month;
+    const limit = isPro ? -1 : plan?.max_transactions_per_month;
     const txCount = await SubscriptionRepository.countTransactionsThisMonth(userId);
 
     return {
       success: true,
-      plan_name: plan?.display_name || plan?.name,
+      plan_name: isPro && plan?.name === 'free' ? 'Pro (override)' : (plan?.display_name || plan?.name),
       is_pro: isPro,
       features,
       transactions_used: txCount,
