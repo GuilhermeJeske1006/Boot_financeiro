@@ -18,6 +18,15 @@ const REQUIRES_CONFIRMATION = new Set([
   'export_report',
 ]);
 
+// Tools de escrita que mudam estado no DB
+const WRITE_TOOLS = new Set([
+  'create_transaction',
+  'create_goal',
+  'contribute_to_goal',
+  'update_profile',
+  ...Array.from(REQUIRES_CONFIRMATION),
+]);
+
 // Tools bloqueadas no plano Free
 const PRO_ONLY = new Set([
   'create_recurring_transaction',
@@ -87,12 +96,13 @@ class AgentOrchestrator {
     let iterations = 0;
     let currentMessages = [...messages];
     let mediaResult = null;
+    let writeToolExecuted = false;
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
 
       const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: systemPrompt,
         tools: TOOLS,
@@ -105,6 +115,20 @@ class AgentOrchestrator {
           .map(b => b.text)
           .join('\n')
           .trim();
+
+        // Safety net: se nenhuma write tool foi chamada mas resposta simula sucesso,
+        // re-injeta um lembrete para forçar o tool call (só na primeira iteração)
+        if (iterations === 1 && !writeToolExecuted && this._isFalseSuccess(text)) {
+          currentMessages = [
+            ...currentMessages,
+            { role: 'assistant', content: response.content },
+            {
+              role: 'user',
+              content: 'SISTEMA: Você confirmou uma ação mas não chamou nenhuma tool. Os dados NÃO foram salvos. Execute create_transaction (ou a tool correspondente) agora para registrar de verdade.',
+            },
+          ];
+          continue;
+        }
 
         if (mediaResult) {
           // Sinaliza mídia para o handler devolver como arquivo
@@ -148,6 +172,7 @@ class AgentOrchestrator {
         }
 
         // Executa a tool
+        if (WRITE_TOOLS.has(name)) writeToolExecuted = true;
         const result = await ToolExecutor.execute(userId, name, input);
         await ConversationStore.logAction(userId, name, input, result, false);
 
@@ -238,6 +263,14 @@ class AgentOrchestrator {
       `⚠️ *Erro ao processar.* Tente novamente.\n\n` +
       `_Digite *menu* para usar o bot com menus._`
     );
+  }
+
+  _isFalseSuccess(text) {
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    const hasSuccessSignal = text.includes('✅') || lower.includes('tudo certo') || lower.includes('feito');
+    const hasWriteVerb = /registrad|anotad|salv[oa]|adicionad|cri(ad|ei)|remov|atualiz|contribu/.test(lower);
+    return hasSuccessSignal && hasWriteVerb;
   }
 
   // Limpa histórico conversacional de um usuário

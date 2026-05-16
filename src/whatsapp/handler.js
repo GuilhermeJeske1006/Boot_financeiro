@@ -12,8 +12,8 @@ async function handleWebhook(req, res) {
   res.type('text/xml').status(200).send('<Response></Response>');
 
   try {
-    const { From, Body, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
-    if (!From) return;
+    const { From, Body, NumMedia, MediaUrl0, MediaContentType0, MessageStatus } = req.body;
+    if (!From || MessageStatus) return;
 
     const phone = twilioToPhone(From);
     const numMedia = parseInt(NumMedia || '0', 10);

@@ -90,14 +90,15 @@ class ToolExecutor {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   async _resolveCategory(userId, categoryName, type) {
-    if (!categoryName) return null;
     const cats = await CategoryRepository.findByType(type, userId);
+    if (!cats.length) return null;
+    if (!categoryName) return cats[0];
     const lower = categoryName.toLowerCase().trim();
     return (
       cats.find(c => c.name.toLowerCase() === lower) ||
       cats.find(c => c.name.toLowerCase().includes(lower)) ||
       cats.find(c => lower.includes(c.name.toLowerCase())) ||
-      cats[0] || null
+      cats[0]
     );
   }
 

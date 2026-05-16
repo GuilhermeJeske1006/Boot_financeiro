@@ -9,6 +9,7 @@ class MainMenu {
     const hasRecurring = !!subscription?.plan?.recurring_transactions;
     const hasExport = !!subscription?.plan?.pdf_export;
     const hasBudgets = !!subscription?.plan?.category_budgets;
+    const hasAiChat = !!subscription?.plan?.ai_chat;
 
     const lock = ' 🔒';
 
@@ -33,7 +34,7 @@ class MainMenu {
     menu += `━━━ ⚙️ *Conta* ━━━\n`;
     menu += `*10* ➜ Meu Plano / Upgrade 💳\n`;
     menu += `*11* ➜ Editar Perfil 👤\n`;
-    menu += `*12* ➜ Configurações de IA 🤖\n`;
+    if (hasAiChat) menu += `*12* ➜ Modo Chat IA 💬\n`;
     menu += `*0* ➜ Sair 🔚\n\n`;
 
     menu += `_Digite o número da opção_ ✍️`;

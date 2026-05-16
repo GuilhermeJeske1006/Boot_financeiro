@@ -8,7 +8,6 @@ const ProfileMenu = require('./menus/profile_menu');
 const BudgetMenu = require('./menus/budget_menu');
 const EditTransactionMenu = require('./menus/edit_transaction_menu');
 const GoalMenu = require('./menus/goal_menu');
-const LLMMenu = require('./menus/llm_menu');
 const RecentTransactionsMenu = require('./menus/recent_transactions_menu');
 const SubscriptionService = require('../services/subscription_service');
 const AiInterpreter = require('./services/ai_interpreter');
@@ -127,8 +126,6 @@ class SessionManager {
           return await this._handleEditTransactionFlow(phone, userId, input);
         case 'goals':
           return await this._handleGoalFlow(phone, userId, input);
-        case 'llm_settings':
-          return await this._handleLLMFlow(phone, userId, input);
         case 'recent_transactions':
           return await this._handleRecentTransactionsFlow(phone, userId);
         default:
@@ -265,16 +262,30 @@ class SessionManager {
         return message;
       }
       case '12': {
-        const { message } = await LLMMenu.showMain(userId);
-        this.sessions.set(phone, { flow: 'llm_settings', step: 1, data: {} });
-        return message;
+        const hasPro = await SubscriptionService.hasFeature(userId, 'ai_chat');
+        if (!hasPro) return await MainMenu.show(userId);
+        this.sessions.set(phone, { flow: 'chat', step: 1, data: {} });
+        return this._buildChatWelcome();
       }
       case '0':
         this.sessions.delete(phone);
         return `🔚 Sessão finalizada.\n\nObrigado por usar o *Bot Financeiro*! 👋\n\nPara iniciar novamente, envie qualquer mensagem.`;
-      default:
+      default: {
+        const hasPro = await SubscriptionService.hasFeature(userId, 'ai_chat');
+        if (hasPro && !/^\d+$/.test(input)) {
+          return await this._handleProAiInput(userId, input);
+        }
         return await MainMenu.show(userId);
+      }
     }
+  }
+
+  async _handleProAiInput(userId, input) {
+    const response = await AgentOrchestrator.process(userId, input);
+    if (response && typeof response === 'object' && response.__media) {
+      return { media: response.__media, text: response.text };
+    }
+    return response || '🤖 Não entendi. Digite um número para navegar pelo menu ou escreva sua dúvida.';
   }
 
   async _startTransactionFlow(phone, userId, type) {
@@ -437,20 +448,6 @@ class SessionManager {
   async _handleGoalFlow(phone, userId, input) {
     const state = this._getSession(phone);
     const result = await GoalMenu.handleStep(state, input, userId);
-
-    if (result.done) {
-      this._resetToMain(phone);
-      const mainMenu = await MainMenu.show(userId);
-      return result.message ? `${result.message}\n\n${mainMenu}` : mainMenu;
-    }
-
-    this.sessions.set(phone, result.newState);
-    return result.message;
-  }
-
-  async _handleLLMFlow(phone, userId, input) {
-    const state = this._getSession(phone);
-    const result = await LLMMenu.handleStep(state, input, userId);
 
     if (result.done) {
       this._resetToMain(phone);
