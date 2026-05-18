@@ -111,6 +111,7 @@ class ExportService {
       { header: 'Categoria', key: 'category', width: 20 },
       { header: 'Descrição', key: 'description', width: 30 },
       { header: 'Valor (R$)', key: 'amount', width: 15 },
+      { header: 'Status', key: 'status', width: 14 },
     ];
 
     // Estilo do cabeçalho
@@ -121,13 +122,17 @@ class ExportService {
     });
 
     for (const tx of transactions) {
-      sheet1.addRow({
+      const row = sheet1.addRow({
         date: formatDate(tx.date),
         type: tx.type === 'income' ? 'Receita' : 'Despesa',
         category: tx.category?.name || '',
         description: tx.description || '',
         amount: parseFloat(tx.amount),
+        status: tx.is_projected ? 'Previsto' : 'Lançado',
       });
+      if (tx.is_projected) {
+        row.eachCell((cell) => { cell.font = { italic: true, color: { argb: 'FF888888' } }; });
+      }
     }
 
     // Formata coluna de valor

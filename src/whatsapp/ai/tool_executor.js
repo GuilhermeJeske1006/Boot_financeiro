@@ -205,6 +205,7 @@ class ToolExecutor {
         category: t.category?.name || '',
         description: t.description,
         date_formatted: fmtDate(String(t.date)),
+        ...(t.is_projected && { is_projected: true, frequency: t.frequency }),
       })),
     };
   }
