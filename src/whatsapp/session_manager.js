@@ -93,6 +93,24 @@ class SessionManager {
     }
 
     if (!this.sessions.has(phone)) {
+      if (!/^\d+$/.test(input)) {
+        const hasAiChat = await SubscriptionService.hasFeature(userId, 'ai_chat');
+        if (hasAiChat) {
+          this.sessions.set(phone, { flow: 'chat', step: 1, data: {} });
+          const response = await AgentOrchestrator.process(userId, input);
+          if (response && typeof response === 'object' && response.__media) {
+            return { media: response.__media, text: response.text };
+          }
+          return response;
+        }
+        this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
+        return (
+          `🔒 *Modo Chat disponível apenas nos planos Pro.*\n\n` +
+          `Para usar o assistente de IA, faça upgrade do seu plano.\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          this._buildModeQuestion()
+        );
+      }
       this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
       return this._buildModeQuestion();
     }
