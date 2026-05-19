@@ -60,6 +60,20 @@ class SessionManager {
     );
   }
 
+  _isGreeting(input) {
+    return /^(oi+|ol[aá]|boa\s*(noite|tarde|dia)|bom\s*dia|hey|hello|hi|e\s*a[ií]|eai|salve|opa|tudo\s*(bem|bom|certo)?|boa)\W*$/i.test(input.trim());
+  }
+
+  _buildContinueQuestion() {
+    return (
+      `\n\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Deseja continuar?\n\n` +
+      `💬 *1* ➜ Continuar no Chat (IA)\n` +
+      `🤖 *2* ➜ Ir para o Bot (menus)\n\n` +
+      `_Digite 1 ou 2_ ✍️`
+    );
+  }
+
   _buildChatWelcome() {
     return (
       `💬 *Modo Chat ativado!*\n\n` +
@@ -67,7 +81,7 @@ class SessionManager {
       `• _"Gastei 50 reais no mercado"_\n` +
       `• _"Recebi 3000 de salário"_\n` +
       `• _"Qual meu saldo?"_\n\n` +
-      `_Digite *menu* para voltar ao modo bot ou *sair* para encerrar._`
+      `_Digite *menu* para trocar para o bot com menus ou *sair* para encerrar._`
     );
   }
 
@@ -88,31 +102,32 @@ class SessionManager {
         this.sessions.delete(phone);
         return `🔚 Sessão finalizada.\n\nObrigado por usar o *Bot Financeiro*! 👋\n\nPara iniciar novamente, envie qualquer mensagem.`;
       }
+      if (state.flow === 'chat') {
+        this.sessions.set(phone, { flow: 'main', step: 0, data: {} });
+        return await MainMenu.show(userId);
+      }
       this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
       return this._buildModeQuestion();
     }
 
     if (!this.sessions.has(phone)) {
-      if (!/^\d+$/.test(input)) {
-        const hasAiChat = await SubscriptionService.hasFeature(userId, 'ai_chat');
-        if (hasAiChat) {
-          this.sessions.set(phone, { flow: 'chat', step: 1, data: {} });
-          const response = await AgentOrchestrator.process(userId, input);
-          if (response && typeof response === 'object' && response.__media) {
-            return { media: response.__media, text: response.text };
-          }
-          return response;
-        }
+      if (this._isGreeting(input) || /^\d+$/.test(input)) {
         this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
-        return (
-          `🔒 *Modo Chat disponível apenas nos planos Pro.*\n\n` +
-          `Para usar o assistente de IA, faça upgrade do seu plano.\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━\n` +
-          this._buildModeQuestion()
-        );
+        return this._buildModeQuestion();
       }
-      this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
-      return this._buildModeQuestion();
+
+      const hasAiChat = await SubscriptionService.hasFeature(userId, 'ai_chat');
+      if (!hasAiChat) {
+        this.sessions.set(phone, { flow: 'choose_mode', step: 1, data: {} });
+        return this._buildModeQuestion();
+      }
+
+      this.sessions.set(phone, { flow: 'chat_post_action', step: 1, data: {} });
+      const response = await AgentOrchestrator.process(userId, input);
+      if (response && typeof response === 'object' && response.__media) {
+        return { media: response.__media, text: (response.text || '') + this._buildContinueQuestion() };
+      }
+      return (response || '🤖 Não entendi.') + this._buildContinueQuestion();
     }
 
     const state = this._getSession(phone);
@@ -121,6 +136,8 @@ class SessionManager {
       switch (state.flow) {
         case 'choose_mode':
           return await this._handleChooseMode(phone, userId, input);
+        case 'chat_post_action':
+          return await this._handleChatPostAction(phone, userId, input);
         case 'chat':
           return await this._handleChatFlow(phone, userId, input);
         case 'main':
@@ -155,6 +172,22 @@ class SessionManager {
       this._resetToMain(phone);
       return `❌ Ocorreu um erro: ${error.message}\n\nDigite *menu* para voltar ao menu principal.`;
     }
+  }
+
+  async _handleChatPostAction(phone, userId, input) {
+    if (input === '1') {
+      this.sessions.set(phone, { flow: 'chat', step: 1, data: {} });
+      return this._buildChatWelcome();
+    }
+    if (input === '2') {
+      this.sessions.set(phone, { flow: 'main', step: 0, data: {} });
+      return await MainMenu.show(userId);
+    }
+    const response = await AgentOrchestrator.process(userId, input);
+    if (response && typeof response === 'object' && response.__media) {
+      return { media: response.__media, text: (response.text || '') + this._buildContinueQuestion() };
+    }
+    return (response || '🤖 Não entendi.') + this._buildContinueQuestion();
   }
 
   async _handleChooseMode(phone, userId, input) {
