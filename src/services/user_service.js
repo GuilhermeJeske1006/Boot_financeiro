@@ -44,7 +44,11 @@ class UserService {
       if (!data.name) {
         throw new Error('Name is required');
       }
-      const userData = { ...data };
+      const userData = {
+        name: data.name,
+        email: data.email,
+        ...(data.phone !== undefined && { phone: data.phone }),
+      };
 
       if (data.password) {
         if (!this._validatePassword(data.password)) {

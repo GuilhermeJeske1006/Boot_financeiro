@@ -1,5 +1,6 @@
 const { User, Session, PasswordResetToken, EmailQueue } = require('../models');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 
@@ -15,7 +16,6 @@ class AuthRepository {
       throw new Error('Invalid email or password');
     }
 
-    const bcrypt = require('bcrypt');
     const passwordMatch = await bcrypt.compare(data.password, user.password);
 
     if (!passwordMatch) {
@@ -144,8 +144,9 @@ class AuthRepository {
       throw new Error('Usuário não encontrado');
     }
 
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await User.update(
-      { password: newPassword },
+      { password: hashedPassword },
       { where: { id: user.id } }
     );
 

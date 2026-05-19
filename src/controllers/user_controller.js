@@ -34,6 +34,9 @@ class UserController {
   }
 
   async findById(req, res) {
+    if (Number(req.params.id) !== req.userId) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
     const user = await UserService.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -43,6 +46,9 @@ class UserController {
 
    async update(req, res) {
     try {
+        if (Number(req.params.id) !== req.userId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
         const user = await UserService.update(req.params.id, req.body);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -63,6 +69,9 @@ class UserController {
 
   async delete(req, res) {
     try {
+        if (Number(req.params.id) !== req.userId) {
+          return res.status(403).json({ error: 'Sem permissão' });
+        }
         const success = await UserService.delete(req.params.id);
         if (!success) {
             return res.status(404).json({ error: 'User not found' });

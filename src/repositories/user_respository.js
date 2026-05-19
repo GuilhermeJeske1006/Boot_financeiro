@@ -18,11 +18,11 @@ class UserRepository {
   }
 
   async findAll() {
-    return User.findAll();
+    return User.findAll({ attributes: { exclude: ['password', 'stripe_customer_id', 'tax_id'] } });
   }
 
   async findById(id) {
-    return User.findByPk(id);
+    return User.findByPk(id, { attributes: { exclude: ['password', 'stripe_customer_id', 'tax_id'] } });
   }
 
   async findByPhone(phone) {
